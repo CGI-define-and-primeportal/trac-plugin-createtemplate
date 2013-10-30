@@ -1,0 +1,86 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/"
+      py:strip="">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Administration: Create Project Template</title>
+  </head>
+  <body>
+    <h1>
+      Create Project Template
+    </h1>
+    <div id="about-template-create">
+      <i class="icon-info-sign"></i>
+      Create a template of your project as it currently stands. 
+      This will include all wiki pages, ticket types, workflows, milestone, mailing lists, 
+      membership groups and the file archive repository structure. This can then be used 
+      when a new projects #define project is created. Please note that this is not an 
+      appropriate means of backing up your project content - that is a very much seperate,
+      and already automated process.
+    </div>
+    <div py:if="success" class="box-success color-none">
+      <h3><i class="icon-ok-sign"></i> Congratulations! You created a new template for your project</h3>
+    </div>
+    <div id="template-create" class="box-primary color-none">
+      <form id="createtemplateform" action="" method="post">
+        <div>
+          <label for="template-name" class="fixed-width-label">Template Name  <i id="name-question" class="icon-question-sign"></i></label>
+          <input class="required" type="text" name="template-name"/>
+        </div>
+        <div>
+          <label for="template-description" class="fixed-width-label">Template Description  <i id="description-question" class="icon-question-sign"></i></label>
+          <textarea class="required xsmall" name="description"></textarea>
+        </div>
+        <div>
+          <label for="components" class="fixed-width-label">Components To Include  <i id="component-question" class="icon-question-sign"></i></label>
+          <input type="checkbox" name="wiki" value="wiki" checked="yes"/> Wiki Pages and Attachments
+          <input type="checkbox" name="ticket" value="ticket" checked="yes"/> Ticket Types, Workflows, Custom Fields, Components and Priorites 
+          <input type="checkbox" name="archive" value="archive" checked="yes"/> File Archive Folder Structure
+          <input type="checkbox" name="milestone" value="milestone" checked="yes"/> Milestones 
+          <input type="checkbox" name="list" value="list" checked="yes"/> Mailing Lists 
+          <input type="checkbox" name="group" value="group" checked="yes"/> Groups and Permissions
+        </div>
+        <div id="template-availability">
+          <label for="availability" class="fixed-width-label">Availability  <i id="availability-question" class="icon-question-sign"></i></label>
+          <select name="availability">
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-mini btn-primary" name="template-submit" value="create">
+          <i class="icon-hdd icon-white"></i> Create Template
+        </button>
+      </form>
+    </div>
+    <div class="box-info color-none">
+      <p>To remove a previously created template, please email servicedesk@logica.com</p>
+    </div>
+    <div id="template-name-dialog" class="hidden">
+      The name should uniqley identify this template.
+    </div>
+    <div id="template-description-dialog" class="hidden">
+      Please provide a few words to describe the purpose of this template. 
+      For example, does it provide a template for teams implementing a SCRUM
+      methodology or was it designed to be used by a particular project etc.
+    </div>
+    <div id="template-component-dialog" class="hidden">
+      <p>You can customise which parts of your project you export into a template. 
+      For example you might only want to export wiki pages, mailing lists and 
+      membership groups. By default all components are exported.</p>
+      <p>When a new project is created with your template, default #define data will
+      be used if you have not exported that component in your template.</p>
+    </div>
+    <div id="template-availability-dialog" class="hidden">
+      <p>You can make your template publically  available to other #define users
+      by selecting the 'Public' value. We recommend this, as it encourages 
+      collaboration and allows other members to benefit from your efforts.</p>
+      <p>If you have a preference to not share your template, please select the
+      'Private' value. The template will then not be available to other members 
+      without your consent.</p>
+    </div>
+  </body>
+</html>

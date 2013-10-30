@@ -1,0 +1,360 @@
+import pkg_resources
+import os
+import datetime
+import shutil
+import subprocess
+# cElementTree is C implementation and faster
+# http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
+try:
+    import xml.etree.cElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
+
+from trac.core import *
+from trac.web.chrome import ITemplateProvider, add_script, add_notice
+from trac.admin.api import IAdminPanelProvider
+from trac.wiki.model import WikiPage
+from trac.wiki.api import WikiSystem
+from trac.ticket.model import Type, Milestone
+from logicaordertracker.controller import LogicaOrderController
+from trac.perm import DefaultPermissionStore
+from trac.ticket import Priority
+from trac.attachment import Attachment
+
+from simplifiedpermissionsadminplugin.model import Group
+from mailinglistplugin.model import Mailinglist
+
+# Author: Danny Milsom <danny.milsom@cgi.com>
+
+class GenerateTemplate(Component):
+    """Generates files which can be used by other projects as a base template"""
+
+    implements(IAdminPanelProvider, ITemplateProvider)
+
+    # IAdminPanelProvider
+
+    def get_admin_panels(self, req):
+        if 'LOGIN_ADMIN' in req.perm:
+            yield ('general', ('General'),
+           'create_template', ('Create Template'))
+
+    def render_admin_panel(self, req, category, page, path_info):
+        if page == 'create_template':
+            if req.method == 'POST':
+                # server side check that there is a template name
+                # there is jquery validation server side too
+                if not req.args['template-name']:
+                    add_notice(req, "Please enter a template name")
+                    return 'template_admin.html', {}
+
+                # make a directory for this projects template files
+                # if there is already a template with that name we prompt user for an alternative
+                # we can catch this on client side when he have a way to
+                # get all templates on different servers
+                template_dir = os.path.join(os.getcwd(), 'templates')
+                if not os.path.exists(template_dir):
+                    os.mkdir(template_dir)
+
+                template_name = req.args['template-name']
+                template_path = os.path.join(os.getcwd(), 'templates', template_name)
+                if not os.path.exists(template_path):
+                    os.mkdir(template_path)
+                else:
+                    add_notice(req, "A template with the name %s already exists. "
+                                    "Please choose a different name." % template_name)
+                    return 'template_admin.html', {}
+
+                project_name = req.href().strip("/")
+                template_date = datetime.date.today().strftime("%m-%d-%Y")
+
+                # so far so good - now what data should we export
+                if 'wiki' in req.args:
+                    self.export_wiki_pages(project_name, template_path)
+                    self.export_wiki_attachments(req, project_name, template_name)
+                if 'ticket' in req.args:
+                    self.export_ticket_types(project_name, template_path)
+                    self.export_workflows(req, template_path)
+                    # we export permissions if we export tickets, else
+                    # the values availble in the priority field could be different
+                    self.export_priorites(project_name, template_path)
+                if 'archive' in req.args:
+                    self.export_file_archive(project_name, os.path.join(template_name, template_name + '.dump.gz'))
+                if 'group' in req.args:
+                    self.export_groups(project_name, template_path)
+                    # we export permissions only if groups are selected, 
+                    # otherwise the permissions table might refer to groups
+                    # which don't exist in the project
+                    self.export_permissions(project_name, template_path)
+                if 'list' in req.args:
+                    self.export_lists(project_name, template_path)
+                if 'milestone' in req.args:
+                    self.export_milestones(project_name, template_path)
+
+                # create an info file to store the exact time of template
+                # creation, username of template creator etc.
+                self.create_template_info_file(req, template_path)
+
+                add_script(req, 'createtemplate/js/create_template_admin.js')
+                data = {'success':True}
+                return 'template_admin.html', data
+            else:
+                add_script(req, 'createtemplate/js/create_template_admin.js')
+                return 'template_admin.html', {}
+
+    def export_wiki_pages(self, project_name, template_path):
+        """Get data for each wiki page that has not been deleted and place
+        that inside an XML new tree. When we've finished building the tree, 
+        create a new XML file to store the content."""
+        # Get page names and create wiki page objects
+        # get_pages() already excludes deleted pages
+        wiki_names = WikiSystem(self.env).get_pages()
+        if wiki_names:
+            project_wiki = [WikiPage(self.env, wiki_page) for wiki_page in wiki_names]
+
+            # create an XML tree using ElementTree
+            template_date = datetime.date.today().strftime("%d-%m-%y")
+            root = ET.Element("wiki", project=project_name, date=template_date)
+            for wiki in project_wiki:
+                page = ET.SubElement(root, "page", name=wiki.name)
+                properties = ET.SubElement(page, "properties",
+                                            readonly=str(wiki.readonly),
+                                            author=str(wiki.author)
+                                           )
+                content = ET.SubElement(properties, "content").text = wiki.text
+
+            # create the actual xml file
+            filename = os.path.join(template_path, 'wiki.xml')
+            if os.path.exists(filename):
+                os.remove(filename)
+            ET.ElementTree(root).write(filename)
+            self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def export_wiki_attachments(self, req, project_name, template_dir):
+        """Exports files attached to wiki pages. To do this we need
+        to export the wiki attachment data and put that into an XML file, 
+        plus we need to store the actual files in our template directory!"""
+
+        # Get information about attachments
+        # Not really a nice way to get all the attachments in trac/attachments
+        attachments = list()
+        for wiki_name in WikiSystem(self.env).get_pages():
+            for attachment in Attachment.select(self.env, 'wiki', wiki_name):
+                if attachment.exists:
+                    attachments.append(attachment)
+
+        # write this information to XML tree if there are attachments to export
+        if attachments:
+            template_date = datetime.date.today().strftime("%d-%m-%y")
+            self.log.info("Creating wiki attachment XML file for template archive")
+            root = ET.Element("attachments", project=project_name, date=template_date)
+            for attachment in attachments:
+                ET.SubElement(root, "attachment", name=attachment.filename, 
+                                                  parent_id=attachment.parent_id,
+                                                  size=str(attachment.size),
+                                                  version=str(attachment.version)).text = attachment.description
+
+            # create the xml file
+            filename = os.path.join("templates", template_dir, "attachment.xml")
+            if os.path.exists(filename):
+                os.remove(filename)
+            ET.ElementTree(root).write(filename)
+            self.log.info("File %s has been created at %s" % (filename, os.getcwd()))
+
+            # copy the project attachments into our new directory
+            # note the slicing of reg.href() as that has a / at beginning
+            attachment_dir_path = os.path.join(os.getcwd(), 'projects', req.href()[1:], 'attachments', 'wiki')
+            attachment_template_path = os.path.join(os.getcwd(), "templates", template_dir, 'attachments', 'wiki')
+            # the directory we copy to can't exist before this
+            if os.path.exists(attachment_template_path):
+                shutil.rmtree(attachment_template_path)
+            shutil.copytree(attachment_dir_path, attachment_template_path)
+            self.log.info("Copied wiki attachments to %s", attachment_template_path)
+
+    def export_ticket_types(self, project_name, template_path):
+        """Creates a dictionary where each key is a ticket type and the value
+        is ticket type information. We then iterate over this to create a XML
+        file using ElementTree lib"""
+
+        types = [ticket_type.name for ticket_type in Type.select(self.env)]
+
+        ticket_types_dict = dict()
+        controller = LogicaOrderController(self.env)
+        for ticket_type in types:
+            # using a _method() is a bit naughty
+            ticket_types_dict[ticket_type] = controller._serialize_ticket_type(ticket_type)
+
+        # create the XML tree
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        self.log.info("Creating ticket type XML file for template archive")
+
+        root = ET.Element("ticket_types", project=project_name, date=template_date)
+        for type_name, type_info in ticket_types_dict.iteritems():
+            ET.SubElement(root, "type_name", name=type_name).text = type_info
+
+        # create the xml file
+        filename = os.path.join(template_path, 'ticket.xml')
+        if os.path.exists(filename):
+            os.remove(filename)
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def export_workflows(self, req, template_path):
+        """Takes all the project specific workflows and copies them into
+        into a new template directory. It doesn't matter if these have the same
+        name as default workflows, as the project specific workflow has 
+        priority."""
+
+        # make a directory to hold workflows
+        workflow_template_path = os.path.join(template_path, 'workflows')
+        self.log.info("Creating a template workflow directory at %s", workflow_template_path)
+        if not os.path.exists(workflow_template_path):
+            os.mkdir(workflow_template_path)
+        else:
+            shutil.rmtree(workflow_template_path)
+            os.mkdir(workflow_template_path)
+
+        # copy the workflows into our new directory
+        workflow_dir = os.path.join(os.getcwd(), 'projects', req.href()[1:], 'workflows')
+        for workflow in os.listdir(workflow_dir):
+            if workflow.lower().endswith('.xml'):
+                full_file_name = os.path.join(workflow_dir, workflow)
+                if (os.path.isfile(full_file_name)):
+                    shutil.copy(full_file_name, workflow_template_path)
+                    self.log.info("%s moved to %s template directory", (workflow, workflow_template_path))
+
+    def export_priorites(self, project_name, template_path):
+        """Get the different ticket priority values from the enum table and
+        save the result into a XML file."""
+
+        # create the XML tree
+        self.log.info("Creating priority XML file for template archive")
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        root = ET.Element("ticket_priority", project=project_name, date=template_date)
+        for priority in Priority.select(self.env):
+            ET.SubElement(root, "priority_info", name=priority.name, value=str(priority.value))
+
+        # create the xml file
+        filename = os.path.join(template_path, 'priority.xml')
+        if os.path.exists(filename):
+            os.remove(filename)
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def export_file_archive(self, project_name, path):
+        """For now we only deal with Subversion repositories - GIT will come 
+        soon (probably via GIT clone)"""
+
+        full_path = os.path.join(os.getcwd(), "/vc-repos/svn/%s" % project_name)
+
+        # Dump the file archive at the latest version (-rHEAD)
+        self.log.info("Dumping the file archive for the project template")
+        subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (full_path, path), cwd=os.getcwd(), shell=True)
+
+        """(4:36:41 PM) define@conference.define.nu/Nick (Win): pipern@pipern-debian7-vm:~/src/define-4$ svnadmin dump -rHEAD ./development-environment/vc-repos/svn/project1 | gzip >project1.dump.gz"""
+
+    def export_groups(self, project_name, template_path):
+        """Puts a list of all internal membership groups into an XML file. 
+        We ignore linked groups at the moment."""
+
+        self.log.info("Creating membership group XML file for template archive")
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        groups = [Group(self.env, sid) for sid in Group.groupsBy(self.env)]
+        if groups:
+            root = ET.Element("membership_group", project=project_name, date=template_date)
+            for group in groups:
+                if not group.external_group:
+                    ET.SubElement(root, "group_info", name=group.name, sid=group.sid, label=group.label).text = group.description
+
+            exteneral_groups = Group.groupsBy(self.env, only_external_groups=True)
+            linked_groups = [i for i in groups if exteneral_groups]
+            project_groups = [i for i in groups if not exteneral_groups]
+
+            # create the xml file
+            filename = os.path.join(template_path, 'group.xml')
+            if os.path.exists(filename):
+                os.remove(filename)
+            ET.ElementTree(root).write(filename)
+            self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def export_permissions(self, project_name, template_path):
+        """Collects all permissions from the permissions table"""
+
+        self.log.info("Creating permissions XML file for template archive")
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        root = ET.Element("permissions", project=project_name, date=template_date)
+        for perm in DefaultPermissionStore(self.env).get_all_permissions():
+            ET.SubElement(root, "permission", name=perm[0], action=perm[1])
+
+        # create the xml file
+        filename = os.path.join(template_path, 'permission.xml')
+        if os.path.exists(filename):
+            os.remove(filename)
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+        # need to think about permissions and inheritence
+
+    def export_lists(self, project_name, template_path):
+        """Exports project mailing lists"""
+
+        self.log.info("Creating mailing list XML file for template archive")
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        root = ET.Element("lists", project=project_name, date=template_date)
+        for ml in Mailinglist.select(self.env):
+            ET.SubElement(root, "list_info", name=ml.name,
+                                             email=ml.emailaddress,
+                                             private=str(ml.private),
+                                             postperm=ml.postperm,
+                                             replyto=ml.replyto).text = ml.description
+
+        # save the xml file
+        filename = os.path.join(template_path, 'list.xml')
+        if os.path.exists(filename):
+            os.remove(filename)
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def export_milestones(self, project_name, template_path):
+        """Exports all project milestones into an XML file"""
+
+        self.env.log.info("Creating milestone XML file for template archive")
+        template_date = datetime.date.today().strftime("%d-%m-%y")
+        root = ET.Element("milestones", project=project_name, date=template_date)
+        for milestone in Milestone.select(self.env, db=self.env.get_db_cnx()):
+            ms = ET.SubElement(root, "milestone_info", name=milestone.name)
+            # we need to do some checking incase the attribute has a None type
+            if milestone.start:
+                ms.attrib['start'] = milestone.start
+            if milestone.due:
+                ms.attrib['due'] = milestone.due
+            if milestone.completed:
+                ms.attrib['completed'] = milestone.completed
+            if milestone.description:
+                ms.text = milestone.description
+
+        # save the xml file in the template directory
+        filename = os.path.join(template_path, 'milestone.xml')
+        if os.path.exists(filename):
+            os.remove(filename)
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+    def create_template_info_file(self, req, template_path):
+        """We can store some extra metadata about the template creation - such 
+        as the author, the exact time and availability of the template."""
+
+        filename = os.path.join(template_path, "info.xml")
+        f = file(filename, "w")
+        time = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+        text = "Time - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s\n" \
+                % (time, req.authname, req.args['availability'], req.args['description'])
+        f.write(text)
+
+    # ITemplateProvider methods
+
+    def get_htdocs_dirs(self):
+        return [('createtemplate', pkg_resources.resource_filename(__name__,
+                                                                'htdocs'))]
+
+    def get_templates_dirs(self):
+        return [pkg_resources.resource_filename(__name__, 'templates')]
