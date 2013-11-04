@@ -22,58 +22,58 @@ from mailinglistplugin.model import Mailinglist
 class ImportTemplate(Component):
     """Creates data and components inside #define based on XML template files"""
 
-    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/template',
+    template_dir_path = PathOption('project_templates', 'template_dir', '/home/danny/checkouts/templatebranch2/development-environment/templates',
                     doc="The default path for the project template directory")
 
     def import_wiki_pages(self, template_name):
         """Creates wiki pages inside the project using data extracted from
-        an XML file."""
+        an XML file. We don't set the author or version as that wouldn't 
+        be applicable to a new project."""
 
-        # open the XML file and parse the data
-        self.log.info("Creating wiki pages from template")
+        # open the wiki XML file, parse the data and create wiki pages
         full_path = os.path.join(self.template_dir_path, template_name, 'wiki.xml')
         tree = ET.ElementTree(file=full_path)
-        # iterate through the tree and get info
         for page in tree.getroot():
-            properties = page.getchildren()[0]
-            attrib = properties.attrib
-
-            # we dont care about the author or version
             wikipage = WikiPage(self.env, page.attrib['name'])
-            wikipage.readonly = int(attrib['readonly'])
-            wikipage.text = properties.getchildren()[0].text
+            wikipage.readonly = int(page.attrib['readonly']) # we store as a string in xml
+            wikipage.text = page.text
             wikipage.save(None, None, None)
             self.log.info("Wiki page %s created" % page.attrib['name'])
 
     def import_wiki_attachments(self, template_name, project_name):
-        """Imports wiki files and inserts data into the attachment table"""
+        """Imports wiki attachment files and inserts associated data into 
+        the attachment wiki table"""
 
-        # copy the actual files
-        self.log.info("Importing attachment files from template directory")
+        # check that there are attachments to import
         template_attachment_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
-        project_attachment_path = os.path.join(os.getcwd(), 'projects', project_name, 'attachments', 'wiki')
-        # the directory we copy to can't exist before this
-        if os.path.exists(project_attachment_path):
-            shutil.rmtree(project_attachment_path)
-        shutil.copytree(template_attachment_path, project_attachment_path)
-        self.log.info("Copied wiki attachments to %s", project_attachment_path)
+        if os.path.isdir(template_attachment_path):
 
-        @self.env.with_transaction()
-        def clear_and_insert_attachments(db):
-            """Clears any wiki attachments from the current attachment table
-            and inserts new rows based on attachment info from xml templates"""
+            # the directory we copy to can't exist before this
+            project_attachment_path = os.path.join(self.env.path, 'attachments', 'wiki')
+            if os.path.exists(project_attachment_path):
+                shutil.rmtree(project_attachment_path)
 
-            cursor = db.cursor()
-            cursor.execute("DELETE FROM attachment WHERE type='wiki'")
+            # copy the actual files (and create the attachment dir)
+            shutil.copytree(template_attachment_path, project_attachment_path)
+            self.log.info("Copied wiki attachments to %s", project_attachment_path)
 
-            filepath = os.path.join(self.template_dir_path, template_name, 'attachment.xml')
-            tree = ET.ElementTree(file=filepath)
-            attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
-                                att.attrib['size'], att.text)
-                                for att in tree.getroot()]
+            # insert meta-data into the wiki attachment table
+            @self.env.with_transaction()
+            def clear_and_insert_attachments(db):
+                """Clears any wiki attachments from the current attachment table
+                and inserts new rows based on attachment info from xml templates"""
 
-            cursor.executemany("""INSERT INTO attachment(type, id, filename, size, description)
-                                  VALUES (%s, %s, %s, %s, %s)""", attachment_info)
+                cursor = db.cursor()
+                cursor.execute("DELETE FROM attachment WHERE type='wiki'")
+
+                filepath = os.path.join(self.template_dir_path, template_name, 'attachment.xml')
+                tree = ET.ElementTree(file=filepath)
+                attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
+                                    att.attrib['size'], att.text)
+                                    for att in tree.getroot()]
+
+                cursor.executemany("""INSERT INTO attachment(type, id, filename, size, description)
+                                      VALUES (%s, %s, %s, %s, %s)""", attachment_info)
 
     def template_populate(self, template_name, project_name):
         """Clears tables of define default data and repopulates them with 

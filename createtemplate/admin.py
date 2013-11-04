@@ -119,12 +119,10 @@ class GenerateTemplate(Component):
             template_date = datetime.date.today().strftime("%d-%m-%y")
             root = ET.Element("wiki", project=project_name, date=template_date)
             for wiki in project_wiki:
-                page = ET.SubElement(root, "page", name=wiki.name)
-                properties = ET.SubElement(page, "properties",
-                                            readonly=str(wiki.readonly),
-                                            author=str(wiki.author)
-                                           )
-                content = ET.SubElement(properties, "content").text = wiki.text
+                page = ET.SubElement(root, "page", name=wiki.name, 
+                                                   readonly=str(wiki.readonly),
+                                                   author=str(wiki.author)
+                                    ).text = wiki.text
 
             # create the actual xml file
             filename = os.path.join(template_path, 'wiki.xml')
@@ -165,10 +163,10 @@ class GenerateTemplate(Component):
             self.log.info("File %s has been created at %s" % (filename, os.path.join(self.template_dir_path, template_name)))
 
             # copy the project attachments into our new directory
-            # note the slicing of reg.href() as that has a / at beginning
-            attachment_dir_path = os.path.join(os.getcwd(), 'projects', req.href()[1:], 'attachments', 'wiki')
+            attachment_dir_path = os.path.join(self.env.path, 'attachments', 'wiki')
             attachment_template_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
-            # the directory we copy to can't exist before this
+
+            # the directory we copy to can't exist before shutil.copytree()
             if os.path.exists(attachment_template_path):
                 shutil.rmtree(attachment_template_path)
             shutil.copytree(attachment_dir_path, attachment_template_path)
