@@ -208,12 +208,10 @@ class GenerateTemplate(Component):
 
         # make a directory to hold workflows
         workflow_template_path = os.path.join(template_path, 'workflows')
-        self.log.info("Creating a template workflow directory at %s", workflow_template_path)
-        if not os.path.exists(workflow_template_path):
-            os.mkdir(workflow_template_path)
-        else:
+        if os.path.exists(workflow_template_path):
             shutil.rmtree(workflow_template_path)
-            os.mkdir(workflow_template_path)
+        os.mkdir(workflow_template_path)
+        self.log.info("Created a template workflow directory at %s", workflow_template_path)
 
         # copy the workflows into our new directory
         workflow_dir = os.path.join(self.env.path, 'workflows')

@@ -225,7 +225,7 @@ class ImportTemplate(Component):
         # now import ticket types from template
         # we use LogicaOrderController rather than a straight SQL insert
         self.import_ticket_types(template_path) 
-        self.import_workflows(template_path, project_name)
+        self.import_workflows(template_path)
 
     def import_ticket_types(self, template_path):
         """Create ticket types using the import functionality from 
@@ -241,11 +241,12 @@ class ImportTemplate(Component):
             # using a _method() is a bit naughty
             controller._import_ticket_type(ticket.text, dry_run=False)
 
-    def import_workflows(self, template_name, project_name):
-        # copy the template files
-        self.log.info("Importing project specific workflows into template directory")
+    def import_workflows(self, template_name):
+        """Copies all workflow files from the template directory to our new 
+        project's workflow directory."""
+
         template_workflow_path = os.path.join(self.template_dir_path, template_name, 'workflows')
-        project_workflow_path = os.path.join(os.getcwd(), 'projects', project_name, 'workflows')
+        project_workflow_path = os.path.join(self.env.path, 'workflows')
 
         # the directory we copy to can't exist if using shutil.copytree
         # but it is created in manage_project()
