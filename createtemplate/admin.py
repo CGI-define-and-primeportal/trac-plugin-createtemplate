@@ -20,6 +20,7 @@ from logicaordertracker.controller import LogicaOrderController
 from trac.perm import DefaultPermissionStore
 from trac.ticket import Priority
 from trac.attachment import Attachment
+from trac.config import PathOption
 
 from simplifiedpermissionsadminplugin.model import Group
 from mailinglistplugin.model import Mailinglist
@@ -28,6 +29,9 @@ from mailinglistplugin.model import Mailinglist
 
 class GenerateTemplate(Component):
     """Generates files which can be used by other projects as a base template"""
+
+    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/template',
+                    doc="The default path for the project template directory")
 
     implements(IAdminPanelProvider, ITemplateProvider)
 
@@ -47,16 +51,16 @@ class GenerateTemplate(Component):
                     add_notice(req, "Please enter a template name")
                     return 'template_admin.html', {}
 
-                # make a directory for this projects template files
-                # if there is already a template with that name we prompt user for an alternative
+                # create a directory to hold templates if there isn't already one
+                if not os.path.exists(self.template_dir_path):
+                    os.mkdir(self.template_dir_path)
+                self.log.info("Creating template directory at %s", self.template_dir_path)
+
+                # if there is already a template with the same name we prompt user for an alternative
                 # we can catch this on client side when he have a way to
                 # get all templates on different servers
-                template_dir = os.path.join(os.getcwd(), 'templates')
-                if not os.path.exists(template_dir):
-                    os.mkdir(template_dir)
-
                 template_name = req.args['template-name']
-                template_path = os.path.join(os.getcwd(), 'templates', template_name)
+                template_path = os.path.join(self.template_dir_path, template_name)
                 if not os.path.exists(template_path):
                     os.mkdir(template_path)
                 else:
@@ -129,7 +133,7 @@ class GenerateTemplate(Component):
             ET.ElementTree(root).write(filename)
             self.log.info("File %s has been created at %s" % (filename, template_path))
 
-    def export_wiki_attachments(self, req, project_name, template_dir):
+    def export_wiki_attachments(self, req, project_name, template_name):
         """Exports files attached to wiki pages. To do this we need
         to export the wiki attachment data and put that into an XML file, 
         plus we need to store the actual files in our template directory!"""
@@ -154,16 +158,16 @@ class GenerateTemplate(Component):
                                                   version=str(attachment.version)).text = attachment.description
 
             # create the xml file
-            filename = os.path.join("templates", template_dir, "attachment.xml")
+            filename = os.path.join(self.template_dir_path, template_name, "attachment.xml")
             if os.path.exists(filename):
                 os.remove(filename)
             ET.ElementTree(root).write(filename)
-            self.log.info("File %s has been created at %s" % (filename, os.getcwd()))
+            self.log.info("File %s has been created at %s" % (filename, os.path.join(self.template_dir_path, template_name)))
 
             # copy the project attachments into our new directory
             # note the slicing of reg.href() as that has a / at beginning
             attachment_dir_path = os.path.join(os.getcwd(), 'projects', req.href()[1:], 'attachments', 'wiki')
-            attachment_template_path = os.path.join(os.getcwd(), "templates", template_dir, 'attachments', 'wiki')
+            attachment_template_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
             # the directory we copy to can't exist before this
             if os.path.exists(attachment_template_path):
                 shutil.rmtree(attachment_template_path)
@@ -214,7 +218,7 @@ class GenerateTemplate(Component):
             os.mkdir(workflow_template_path)
 
         # copy the workflows into our new directory
-        workflow_dir = os.path.join(os.getcwd(), 'projects', req.href()[1:], 'workflows')
+        workflow_dir = os.path.join(self.env.path, 'workflows')
         for workflow in os.listdir(workflow_dir):
             if workflow.lower().endswith('.xml'):
                 full_file_name = os.path.join(workflow_dir, workflow)

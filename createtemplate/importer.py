@@ -11,6 +11,7 @@ except ImportError:
 from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket.model import Type, Milestone
+from trac.config import PathOption
 
 from logicaordertracker.controller import LogicaOrderController
 from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
@@ -21,13 +22,16 @@ from mailinglistplugin.model import Mailinglist
 class ImportTemplate(Component):
     """Creates data and components inside #define based on XML template files"""
 
+    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/template',
+                    doc="The default path for the project template directory")
+
     def import_wiki_pages(self, template_name):
         """Creates wiki pages inside the project using data extracted from
         an XML file."""
 
         # open the XML file and parse the data
         self.log.info("Creating wiki pages from template")
-        full_path = os.path.join(os.getcwd(), 'templates', template_name, 'wiki.xml')
+        full_path = os.path.join(self.template_dir_path, template_name, 'wiki.xml')
         tree = ET.ElementTree(file=full_path)
         # iterate through the tree and get info
         for page in tree.getroot():
@@ -46,7 +50,7 @@ class ImportTemplate(Component):
 
         # copy the actual files
         self.log.info("Importing attachment files from template directory")
-        template_attachment_path = os.path.join(os.getcwd(), 'templates', template_name, 'attachments', 'wiki')
+        template_attachment_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
         project_attachment_path = os.path.join(os.getcwd(), 'projects', project_name, 'attachments', 'wiki')
         # the directory we copy to can't exist before this
         if os.path.exists(project_attachment_path):
@@ -62,7 +66,7 @@ class ImportTemplate(Component):
             cursor = db.cursor()
             cursor.execute("DELETE FROM attachment WHERE type='wiki'")
 
-            filepath = os.path.join(os.getcwd(), 'templates', template_name, 'attachment.xml')
+            filepath = os.path.join(self.template_dir_path, template_name, 'attachment.xml')
             tree = ET.ElementTree(file=filepath)
             attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
                                 att.attrib['size'], att.text)
@@ -83,7 +87,7 @@ class ImportTemplate(Component):
         enum_to_clear = list()
 
         # go through template dir to see which tables and rows we want to modify
-        dir_path = os.path.join(os.getcwd(), 'templates', template_name)
+        dir_path = os.path.join(self.template_dir_path, template_name)
         for filename in os.listdir(dir_path):
             if filename.lower().endswith("permission.xml"):
                 self.import_perms(template_name)
@@ -109,10 +113,10 @@ class ImportTemplate(Component):
         continue to use default data."""
 
         # parse the tree to get username, action data
-        dir_path = os.path.join(os.getcwd(), 'templates', template_name)
-        for xml_file in os.listdir(dir_path):
+        template_path = os.path.join(self.template_dir_path, template_name)
+        for xml_file in os.listdir(template_path):
             if xml_file.endswith("permission.xml"):
-                path = os.path.join(os.getcwd(), 'templates', template_name, "permission.xml")
+                path = os.path.join(template_path, "permission.xml")
                 tree = ET.ElementTree(file=path)
                 perm_data = [(perm.attrib['name'], perm.attrib['action']) for perm in tree.getroot()]
             else:
@@ -147,7 +151,7 @@ class ImportTemplate(Component):
             cursor.execute("DELETE FROM groups")
 
         self.log.info("Creating groups from template")
-        path = os.path.join(os.getcwd(), 'templates', template_name, "group.xml")
+        path = os.path.join(self.template_dir_path, template_name, "group.xml")
         tree = ET.ElementTree(file=path)
         for group in tree.getroot():
             SimplifiedPermissions(self.env).add_group(group.attrib['name'], description=group.text)
@@ -165,7 +169,7 @@ class ImportTemplate(Component):
             cursor.execute("""DELETE FROM milestone""")
 
         # Parse the XML tree and create milestones
-        path = os.path.join(os.getcwd(), 'templates', template_name, "milestone.xml")
+        path = os.path.join(self.template_dir_path, template_name, "milestone.xml")
         tree = ET.ElementTree(file=path)
         for m in tree.getroot():
             milestone = Milestone(self.env)
@@ -191,10 +195,10 @@ class ImportTemplate(Component):
 
         # create a list of tuples for every enum type in our template 
         # where the tuple follows the synax (type, name, value)
-        template_path = os.path.join(os.getcwd(), 'templates', template_name)
+        template_path = os.path.join(self.template_dir_path, template_name)
         for xml_file in os.listdir(template_path):
             if xml_file.endswith("priority.xml"):
-                path = os.path.join(os.getcwd(), 'templates', template_name, 'priority.xml')
+                path = os.path.join(template_path, 'priority.xml')
                 tree = ET.ElementTree(file=path)
                 priority_list = [('priority', priority.attrib['name'], priority.attrib['value']) for priority in tree.getroot()]
 
@@ -240,7 +244,7 @@ class ImportTemplate(Component):
     def import_workflows(self, template_name, project_name):
         # copy the template files
         self.log.info("Importing project specific workflows into template directory")
-        template_workflow_path = os.path.join(os.getcwd(), 'templates', template_name, 'workflows')
+        template_workflow_path = os.path.join(self.template_dir_path, template_name, 'workflows')
         project_workflow_path = os.path.join(os.getcwd(), 'projects', project_name, 'workflows')
 
         # the directory we copy to can't exist if using shutil.copytree
@@ -254,7 +258,7 @@ class ImportTemplate(Component):
         """Create new mailing lists based on the mailng list XML 
         template."""
 
-        path = os.path.join(os.getcwd(), 'templates', template_name, 'list.xml')
+        path = os.path.join(self.template_dir_path, template_name, 'list.xml')
         tree = ET.ElementTree(file=path)
         for ml in tree.getroot():
             mailinglist = Mailinglist(self.env, emailaddress=ml.attrib['email'],
@@ -272,6 +276,6 @@ class ImportTemplate(Component):
         """Create a new subversion repository using the dump file in 
         the template directory."""
 
-        path_to_dump = os.path.join(os.getcwd(), 'templates', template_name,  template_name + '.dump.gz')
+        path_to_dump = os.path.join(self.template_dir_path, template_name,  template_name + '.dump.gz')
         subprocess.call("zcat %s | svnadmin load newrepo" % path_to_dump, cwd=os.getcwd(), shell=True)
         self.log.info("Created new Subversion file archive")
