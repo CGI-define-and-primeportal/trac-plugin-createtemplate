@@ -12,6 +12,7 @@ from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket.model import Type, Milestone
 from trac.config import PathOption
+from trac.util.datefmt import utc, parse_date
 
 from logicaordertracker.controller import LogicaOrderController
 from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
@@ -176,16 +177,15 @@ class ImportTemplate(Component):
             if 'name' in m.attrib:
                 milestone.name = m.attrib['name']
             if 'start' in m.attrib:
-                milestone.start = m.attrib['start']
+                milestone.start = parse_date(m.attrib['start'])
             if 'due' in m.attrib:
-                milestone.due = m.attrib['due']
+                milestone.due = parse_date(m.attrib['due'])
             if 'completed' in m.attrib:
-                milestone.completed = m.attrib['completed']
+                milestone.completed = parse_date(m.attrib['completed'])
+            if 'parent' in m.attrib:
+                milestone.parent = m.attrib['parent']
             if m.text:
                 milestone.description = m.text
-            # what if the parent doesnt exist
-            #if m.parent:
-                #milestone.parent = m.attrib['parent']
             # save the milestone
             milestone.insert()
 

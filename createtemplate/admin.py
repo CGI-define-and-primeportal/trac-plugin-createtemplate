@@ -315,20 +315,24 @@ class GenerateTemplate(Component):
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
     def export_milestones(self, project_name, template_path):
-        """Exports all project milestones into an XML file"""
+        """Exports all project milestones into an XML file, respecting
+        the new sub-milestone feature."""
 
         self.env.log.info("Creating milestone XML file for template archive")
         template_date = datetime.date.today().strftime("%d-%m-%y")
         root = ET.Element("milestones", project=project_name, date=template_date)
-        for milestone in Milestone.select(self.env, db=self.env.get_db_cnx()):
+        all_milestones = Milestone.select(self.env, include_children=True)
+        for milestone in all_milestones:
             ms = ET.SubElement(root, "milestone_info", name=milestone.name)
             # we need to do some checking incase the attribute has a None type
             if milestone.start:
-                ms.attrib['start'] = milestone.start
+                ms.attrib['start'] = milestone.start.strftime("%Y-%m-%d")
             if milestone.due:
-                ms.attrib['due'] = milestone.due
+                ms.attrib['due'] = milestone.due.strftime("%Y-%m-%d")
             if milestone.completed:
-                ms.attrib['completed'] = milestone.completed
+                ms.attrib['completed'] = milestone.completed.strftime("%Y-%m-%d")
+            if milestone.parent:
+                ms.attrib['parent'] = milestone.parent
             if milestone.description:
                 ms.text = milestone.description
 
