@@ -347,10 +347,10 @@ class GenerateTemplate(Component):
         """We can store some extra metadata about the template creation - such 
         as the author, the exact time and availability of the template."""
 
-        filename = os.path.join(template_path, "info.xml")
+        filename = os.path.join(template_path, "info.txt")
         f = file(filename, "w")
         time = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        text = "Time - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s\n" \
+        text = "Created - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s" \
                 % (time, req.authname, req.args['availability'], req.args['description'])
         f.write(text)
 
