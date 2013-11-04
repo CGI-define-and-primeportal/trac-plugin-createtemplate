@@ -69,7 +69,6 @@ class GenerateTemplate(Component):
                     return 'template_admin.html', {}
 
                 project_name = req.href().strip("/")
-                template_date = datetime.date.today().strftime("%m-%d-%Y")
 
                 # so far so good - now what data should we export
                 if 'wiki' in req.args:
@@ -116,7 +115,7 @@ class GenerateTemplate(Component):
             project_wiki = [WikiPage(self.env, wiki_page) for wiki_page in wiki_names]
 
             # create an XML tree using ElementTree
-            template_date = datetime.date.today().strftime("%d-%m-%y")
+            template_date = datetime.date.today().strftime("%Y-%m-%d")
             root = ET.Element("wiki", project=project_name, date=template_date)
             for wiki in project_wiki:
                 page = ET.SubElement(root, "page", name=wiki.name, 
@@ -146,7 +145,7 @@ class GenerateTemplate(Component):
 
         # write this information to XML tree if there are attachments to export
         if attachments:
-            template_date = datetime.date.today().strftime("%d-%m-%y")
+            template_date = datetime.date.today().strftime("%Y-%m-%d")
             self.log.info("Creating wiki attachment XML file for template archive")
             root = ET.Element("attachments", project=project_name, date=template_date)
             for attachment in attachments:
@@ -186,7 +185,7 @@ class GenerateTemplate(Component):
             ticket_types_dict[ticket_type] = controller._serialize_ticket_type(ticket_type)
 
         # create the XML tree
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         self.log.info("Creating ticket type XML file for template archive")
 
         root = ET.Element("ticket_types", project=project_name, date=template_date)
@@ -228,7 +227,7 @@ class GenerateTemplate(Component):
 
         # create the XML tree
         self.log.info("Creating priority XML file for template archive")
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         root = ET.Element("ticket_priority", project=project_name, date=template_date)
         for priority in Priority.select(self.env):
             ET.SubElement(root, "priority_info", name=priority.name, value=str(priority.value))
@@ -257,7 +256,7 @@ class GenerateTemplate(Component):
         We ignore linked groups at the moment."""
 
         self.log.info("Creating membership group XML file for template archive")
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         groups = [Group(self.env, sid) for sid in Group.groupsBy(self.env)]
         if groups:
             root = ET.Element("membership_group", project=project_name, date=template_date)
@@ -280,7 +279,7 @@ class GenerateTemplate(Component):
         """Collects all permissions from the permissions table"""
 
         self.log.info("Creating permissions XML file for template archive")
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         root = ET.Element("permissions", project=project_name, date=template_date)
         for perm in DefaultPermissionStore(self.env).get_all_permissions():
             ET.SubElement(root, "permission", name=perm[0], action=perm[1])
@@ -298,7 +297,7 @@ class GenerateTemplate(Component):
         """Exports project mailing lists"""
 
         self.log.info("Creating mailing list XML file for template archive")
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         root = ET.Element("lists", project=project_name, date=template_date)
         for ml in Mailinglist.select(self.env):
             ET.SubElement(root, "list_info", name=ml.name,
@@ -319,7 +318,7 @@ class GenerateTemplate(Component):
         the new sub-milestone feature."""
 
         self.env.log.info("Creating milestone XML file for template archive")
-        template_date = datetime.date.today().strftime("%d-%m-%y")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
         root = ET.Element("milestones", project=project_name, date=template_date)
         all_milestones = Milestone.select(self.env, include_children=True)
         for milestone in all_milestones:
@@ -349,7 +348,7 @@ class GenerateTemplate(Component):
 
         filename = os.path.join(template_path, "info.txt")
         f = file(filename, "w")
-        time = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         text = "Created - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s" \
                 % (time, req.authname, req.args['availability'], req.args['description'])
         f.write(text)
