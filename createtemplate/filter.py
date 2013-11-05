@@ -7,7 +7,7 @@ from genshi.filters.transform import Transformer
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
-class Request(Component):
+class Filter(Component):
     """Intercepts requests to the new project ticket type on the 
     dashboard project. We do this so we can dynamically list all project 
     templates."""
