@@ -30,7 +30,7 @@ from mailinglistplugin.model import Mailinglist
 class GenerateTemplate(Component):
     """Generates files which can be used by other projects as a base template"""
 
-    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/template',
+    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/templates',
                     doc="The default path for the project template directory")
 
     implements(IAdminPanelProvider, ITemplateProvider)
