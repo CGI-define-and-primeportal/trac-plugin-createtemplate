@@ -49,7 +49,8 @@ setup(
         },
     entry_points={'trac.plugins':
                    ['createtemplate.admin = createtemplate.admin',
-                    'createtemplate.importer = createtemplate.importer'
+                    'createtemplate.importer = createtemplate.importer',
+                    'createtemplate.request = createtemplate.request'
                    ]},
     install_requires=['Trac', 'Genshi'
                       ],
