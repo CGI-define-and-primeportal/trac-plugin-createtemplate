@@ -273,10 +273,13 @@ class ImportTemplate(Component):
         # TODO Get Subscriber informaiton 
         # mailinglist.subscribe(group='project_group', poser=True)
 
-    def import_file_archive(self, template_name):
+    def import_file_archive(self, template_name, project_name):
         """Create a new subversion repository using the dump file in 
         the template directory."""
 
-        path_to_dump = os.path.join(self.template_dir_path, template_name,  template_name + '.dump.gz')
-        subprocess.call("zcat %s | svnadmin load newrepo" % path_to_dump, cwd=os.getcwd(), shell=True)
-        self.log.info("Created new Subversion file archive")
+        old_repo_path = os.path.join(self.template_dir_path, template_name,  template_name + '.dump.gz')
+        new_repo_path = os.path.join('vc-repos', 'svn', project_name)
+
+        if os.path.exists(old_repo_path) and os.path.exists(new_repo_path):
+            subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
+            self.log.info("Imported Subversion file archive from %s" % old_repo_path)

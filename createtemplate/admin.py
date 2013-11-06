@@ -79,7 +79,7 @@ class GenerateTemplate(Component):
                     # the values availble in the priority field could be different
                     self.export_priorites(template_path)
                 if 'archive' in req.args:
-                    self.export_file_archive(req, os.path.join(template_name, template_name + '.dump.gz'))
+                    self.export_file_archive(req, os.path.join(template_path, template_name + '.dump.gz'))
                 if 'group' in req.args:
                     self.export_groups(template_path)
                     # we export permissions only if groups are selected, 
@@ -237,18 +237,16 @@ class GenerateTemplate(Component):
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
-    def export_file_archive(self, req, path):
-        """For now we only deal with Subversion repositories - GIT will come 
-        soon (probably via GIT clone)"""
+    def export_file_archive(self, req, new_repo_path):
+        """For now we only deal with Subversion repositories. We won't support
+        the export of GIT repos - but we will come back to solve this 
+        issue (probably via GIT clone) in a future release."""
 
-        project_name = req.href().strip("/")
-        full_path = os.path.join(os.getcwd(), "vc-repos", "svn", project_name)
+        old_repo_path = os.path.join("vc-repos", "svn", self.env.project_name)
 
         # Dump the file archive at the latest version (-rHEAD)
-        self.log.info("Dumping the file archive for the project template")
-        subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (full_path, path), cwd=os.getcwd(), shell=True)
-
-        """(4:36:41 PM) define@conference.define.nu/Nick (Win): pipern@pipern-debian7-vm:~/src/define-4$ svnadmin dump -rHEAD ./development-environment/vc-repos/svn/project1 | gzip >project1.dump.gz"""
+        self.log.info("Dumping the file archive at %s into the project template directory", old_repo_path)
+        subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
 
     def export_groups(self, template_path):
         """Puts a list of all internal membership groups into an XML file. 
