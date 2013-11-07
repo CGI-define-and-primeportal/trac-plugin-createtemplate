@@ -1,6 +1,7 @@
 import os
 import subprocess
 import shutil
+import errno
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
 try:
@@ -32,31 +33,46 @@ class ImportTemplate(Component):
         be applicable to a new project."""
 
         # open the wiki XML file, parse the data and create wiki pages
-        full_path = os.path.join(self.template_dir_path, template_name, 'wiki.xml')
-        tree = ET.ElementTree(file=full_path)
-        for page in tree.getroot():
-            wikipage = WikiPage(self.env, page.attrib['name'])
-            wikipage.readonly = int(page.attrib['readonly']) # we store as a string in xml
-            wikipage.text = page.text
-            wikipage.save(None, None, None)
-            self.log.info("Wiki page %s created" % page.attrib['name'])
+        full_path = os.path.join('templates', template_name, 'wiki.xml')
+        try:
+            tree = ET.ElementTree(file=full_path)
+            for page in tree.getroot():
+                wikipage = WikiPage(self.env, page.attrib['name'])
+                wikipage.readonly = int(page.attrib['readonly']) # we store as a string in xml
+                wikipage.text = page.text
+                wikipage.save(None, None, None)
+                self.log.info("Wiki page %s created" % page.attrib['name'])
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to wiki.xml file %s does not exist. Unable "
+                              "to import wiki pages from template.", full_path)
 
     def import_wiki_attachments(self, template_name, project_name):
         """Imports wiki attachment files and inserts associated data into 
         the attachment wiki table"""
 
         # check that there are attachments to import
-        template_attachment_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
+        template_attachment_path = os.path.join('templates', template_name, 'attachments', 'wiki')
         if os.path.isdir(template_attachment_path):
 
-            # the directory we copy to can't exist before this
+            # the directory we copy to can't exist before the copytree() so we delete it just incase
             project_attachment_path = os.path.join(self.env.path, 'attachments', 'wiki')
-            if os.path.exists(project_attachment_path):
+            try:
                 shutil.rmtree(project_attachment_path)
+            except OSError as exception:
+                if exception.errno == errno.ENOENT:
+                    self.log.debug("No directory at %s to delete", project_attachment_path)
 
             # copy the actual files (and create the attachment dir)
-            shutil.copytree(template_attachment_path, project_attachment_path)
-            self.log.info("Copied wiki attachments to %s", project_attachment_path)
+            try:
+                shutil.copytree(template_attachment_path, project_attachment_path)
+                self.log.info("Copied wiki attachments to %s", project_attachment_path)
+            except OSError as exception:
+                # incase the path doesn't exist
+                if exception.errno == errno.ENOENT:
+                    self.log.info("The path to the template attachment directory "
+                                  "at %s does not exist", template_attachment_path)
+                    return
 
             # insert meta-data into the wiki attachment table
             @self.env.with_transaction()
@@ -67,7 +83,7 @@ class ImportTemplate(Component):
                 cursor = db.cursor()
                 cursor.execute("DELETE FROM attachment WHERE type='wiki'")
 
-                filepath = os.path.join(self.template_dir_path, template_name, 'attachment.xml')
+                filepath = os.path.join('templates', template_name, 'attachment.xml')
                 tree = ET.ElementTree(file=filepath)
                 attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
                                     att.attrib['size'], att.text)
@@ -88,21 +104,25 @@ class ImportTemplate(Component):
         enum_to_clear = list()
 
         # go through template dir to see which tables and rows we want to modify
-        dir_path = os.path.join(self.template_dir_path, template_name)
-        for filename in os.listdir(dir_path):
-            if filename.lower().endswith("permission.xml"):
-                self.import_perms(template_name)
-            elif filename.lower().endswith("group.xml"):
-                self.import_groups(template_name)
-            elif filename.lower().endswith("milestone.xml"):
-                self.import_milestones(template_name)
-            elif filename.lower().endswith("priority.xml"):
-                enum_to_clear.append("priority")
-            elif filename.lower().endswith("ticket.xml"):
-                enum_to_clear.append("ticket_type")
-
-        if enum_to_clear:
-            self.import_enum(template_name, enum_to_clear, project_name)
+        dir_path = os.path.join('templates', template_name)
+        try:
+            for filename in os.listdir(dir_path):
+                if filename.lower().endswith("permission.xml"):
+                    self.import_perms(template_name)
+                elif filename.lower().endswith("group.xml"):
+                    self.import_groups(template_name)
+                elif filename.lower().endswith("milestone.xml"):
+                    self.import_milestones(template_name)
+                elif filename.lower().endswith("priority.xml"):
+                    enum_to_clear.append("priority")
+                elif filename.lower().endswith("ticket.xml"):
+                    enum_to_clear.append("ticket_type")
+            if enum_to_clear:
+                self.import_enum(template_name, enum_to_clear, project_name)
+        except OSError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Unable to list files at %s."
+                              "Import of template data failed.", dir_path)
 
     def import_perms(self, template_name):
         """Parses the permissions XML file to get the data we need to insert
@@ -114,15 +134,14 @@ class ImportTemplate(Component):
         continue to use default data."""
 
         # parse the tree to get username, action data
-        template_path = os.path.join(self.template_dir_path, template_name)
-        for xml_file in os.listdir(template_path):
-            if xml_file.endswith("permission.xml"):
-                path = os.path.join(template_path, "permission.xml")
-                tree = ET.ElementTree(file=path)
-                perm_data = [(perm.attrib['name'], perm.attrib['action']) for perm in tree.getroot()]
-            else:
-                self.log.info("No permission data so using default data")
-                return
+        path = os.path.join('templates', template_name, "permission.xml")
+        try:
+            tree = ET.ElementTree(file=path)
+            perm_data = [(perm.attrib['name'], perm.attrib['action']) for perm in tree.getroot()]
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to permission.xml at %s does not exist. "
+                              "Unable to import permissions", path)
 
         @self.env.with_transaction()
         def clear_and_insert_perms(db):
@@ -152,10 +171,15 @@ class ImportTemplate(Component):
             cursor.execute("DELETE FROM groups")
 
         self.log.info("Creating groups from template")
-        path = os.path.join(self.template_dir_path, template_name, "group.xml")
-        tree = ET.ElementTree(file=path)
-        for group in tree.getroot():
-            SimplifiedPermissions(self.env).add_group(group.attrib['name'], description=group.text)
+        path = os.path.join('templates', template_name, "group.xml")
+        try:
+            tree = ET.ElementTree(file=path)
+            for group in tree.getroot():
+                SimplifiedPermissions(self.env).add_group(group.attrib['name'], description=group.text)
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to group.xml at %s does not exist. Unable to "
+                              "import group data from template.", path)
 
     def import_milestones(self, template_name):
         """Deletes existing trac default milestones and creates new ones
@@ -170,24 +194,29 @@ class ImportTemplate(Component):
             cursor.execute("""DELETE FROM milestone""")
 
         # Parse the XML tree and create milestones
-        path = os.path.join(self.template_dir_path, template_name, "milestone.xml")
-        tree = ET.ElementTree(file=path)
-        for m in tree.getroot():
-            milestone = Milestone(self.env)
-            if 'name' in m.attrib:
-                milestone.name = m.attrib['name']
-            if 'start' in m.attrib:
-                milestone.start = parse_date(m.attrib['start'])
-            if 'due' in m.attrib:
-                milestone.due = parse_date(m.attrib['due'])
-            if 'completed' in m.attrib:
-                milestone.completed = parse_date(m.attrib['completed'])
-            if 'parent' in m.attrib:
-                milestone.parent = m.attrib['parent']
-            if m.text:
-                milestone.description = m.text
-            # save the milestone
-            milestone.insert()
+        path = os.path.join('templates', template_name, "milestone.xml")
+        try:
+            tree = ET.ElementTree(file=path)
+            for m in tree.getroot():
+                milestone = Milestone(self.env)
+                if 'name' in m.attrib:
+                    milestone.name = m.attrib['name']
+                if 'start' in m.attrib:
+                    milestone.start = parse_date(m.attrib['start'])
+                if 'due' in m.attrib:
+                    milestone.due = parse_date(m.attrib['due'])
+                if 'completed' in m.attrib:
+                    milestone.completed = parse_date(m.attrib['completed'])
+                if 'parent' in m.attrib:
+                    milestone.parent = m.attrib['parent']
+                if m.text:
+                    milestone.description = m.text
+                # save the milestone
+                milestone.insert()
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to milestone.xml at %s does not exist. "
+                              "Unable to import milestone data from tempalte.", path)
 
     def import_enum(self, template_name, types_to_remove, project_name):
         """Removes types from the enum table and then inserts data from the 
@@ -195,13 +224,16 @@ class ImportTemplate(Component):
 
         # create a list of tuples for every enum type in our template 
         # where the tuple follows the synax (type, name, value)
-        template_path = os.path.join(self.template_dir_path, template_name)
-        for xml_file in os.listdir(template_path):
-            if xml_file.endswith("priority.xml"):
-                path = os.path.join(template_path, 'priority.xml')
-                tree = ET.ElementTree(file=path)
-                priority_list = [('priority', priority.attrib['name'], priority.attrib['value']) for priority in tree.getroot()]
-
+        template_path = os.path.join('templates', template_name)
+        path = os.path.join(template_path, 'priority.xml')
+        try:
+            tree = ET.ElementTree(file=path)
+            priority_list = [('priority', priority.attrib['name'], priority.attrib['value']) for priority in tree.getroot()]
+        except IOError:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to priority.xml at %s does not exist", path)
+                # return before we clear the enum table
+                return
         values = list()
         values.extend(priority_list)
 
@@ -236,39 +268,58 @@ class ImportTemplate(Component):
         controller = LogicaOrderController(self.env)
 
         self.log.info("Creating ticket types from template")
-        tree = ET.ElementTree(file=os.path.join(template_path, 'ticket.xml'))
-        for ticket in tree.getroot():
-            # using a _method() is a bit naughty
-            controller._import_ticket_type(ticket.text, dry_run=False)
+        path = os.path.join(template_path, 'ticket.xml')
+        try:
+            tree = ET.ElementTree(file=path)
+            for ticket in tree.getroot():
+                # using a _method() is a bit naughty
+                controller._import_ticket_type(ticket.text, dry_run=False)
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to ticket.xml at %s does not exist. "
+                              "Unable to import tickets from tempalte.", path)
 
     def import_workflows(self, template_name):
         """Copies all workflow files from the template directory to our new 
         project's workflow directory."""
 
-        template_workflow_path = os.path.join(self.template_dir_path, template_name, 'workflows')
+        template_workflow_path = os.path.join('templates', template_name, 'workflows')
         project_workflow_path = os.path.join(self.env.path, 'workflows')
 
         # the directory we copy to can't exist if using shutil.copytree
         # but it is created in manage_project()
-        if os.path.exists(project_workflow_path):
+        try:
             shutil.rmtree(project_workflow_path)
-        shutil.copytree(template_workflow_path, project_workflow_path)
-        self.log.info("Copied ticket workflows to %s", project_workflow_path)
+        except OSError:
+            self.log.debug("No workflow directory at %s to remove", project_workflow_path)
+
+        try:
+            shutil.copytree(template_workflow_path, project_workflow_path)
+            self.log.info("Copied ticket workflows to %s", project_workflow_path)
+        except OSError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("The path to the workflow directory at %s does "
+                              "not exist. Unable to import workflows.", template_workflow_path)
 
     def import_mailinglist(self, template_name):
         """Create new mailing lists based on the mailng list XML 
         template."""
 
-        path = os.path.join(self.template_dir_path, template_name, 'list.xml')
-        tree = ET.ElementTree(file=path)
-        for ml in tree.getroot():
-            mailinglist = Mailinglist(self.env, emailaddress=ml.attrib['email'],
-                                           name=ml.attrib['name'],
-                                           description=ml.text,
-                                           private=ml.attrib['private'],
-                                           postperm=ml.attrib['postperm'],
-                                           replyto=ml.attrib['replyto'])
-            mailinglist.insert()
+        path = os.path.join('templates', template_name, 'list.xml')
+        try:
+            tree = ET.ElementTree(file=path)
+            for ml in tree.getroot():
+                mailinglist = Mailinglist(self.env, emailaddress=ml.attrib['email'],
+                                               name=ml.attrib['name'],
+                                               description=ml.text,
+                                               private=ml.attrib['private'],
+                                               postperm=ml.attrib['postperm'],
+                                               replyto=ml.attrib['replyto'])
+                mailinglist.insert()
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to list.xml at %s does not exist. "
+                              "Unable to import mailing lists from template.", path)
 
         # TODO Get Subscriber informaiton 
         # mailinglist.subscribe(group='project_group', poser=True)
@@ -277,9 +328,8 @@ class ImportTemplate(Component):
         """Create a new subversion repository using the dump file in 
         the template directory."""
 
-        old_repo_path = os.path.join(self.template_dir_path, template_name,  template_name + '.dump.gz')
+        old_repo_path = os.path.join('templates', template_name,  template_name + '.dump.gz')
         new_repo_path = os.path.join('vc-repos', 'svn', project_name)
 
-        if os.path.exists(old_repo_path) and os.path.exists(new_repo_path):
-            subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
-            self.log.info("Imported Subversion file archive from %s" % old_repo_path)
+        subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
+        self.log.info("Imported Subversion file archive from %s" % old_repo_path)

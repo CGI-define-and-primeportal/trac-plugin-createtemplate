@@ -3,6 +3,7 @@ import os
 import datetime
 import shutil
 import subprocess
+import errno
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
 try:
@@ -52,21 +53,27 @@ class GenerateTemplate(Component):
                     return 'template_admin.html', {}
 
                 # create a directory to hold templates if there isn't already one
-                if not os.path.exists(self.template_dir_path):
+                try:
                     os.mkdir(self.template_dir_path)
-                self.log.info("Creating template directory at %s", self.template_dir_path)
+                    self.log.debug("Created template directory at %s", self.template_dir_path)
+                except OSError as exception:
+                    if exception.errno == errno.EEXIST:
+                        self.log.debug("Template directory already exists at %s", self.template_dir_path)
 
                 # if there is already a template with the same name we prompt user for an alternative
                 # we can catch this on client side when he have a way to
                 # get all templates on different servers
                 template_name = req.args['template-name']
                 template_path = os.path.join(self.template_dir_path, template_name)
-                if not os.path.exists(template_path):
+
+                try:
                     os.mkdir(template_path)
-                else:
-                    add_notice(req, "A template with the name %s already exists. "
-                                    "Please choose a different name." % template_name)
-                    return 'template_admin.html', {}
+                    self.log.debug("Created directory for project template at", template_path)
+                except OSError as exception:
+                    if exception.errno == errno.EEXIST:
+                        add_notice(req, "A template with the name %s already exists. "
+                                        "Please choose a different name." % template_name)
+                        return 'template_admin.html', {}
 
                 # so far so good - now what data should we export
                 if 'wiki' in req.args:
@@ -123,8 +130,6 @@ class GenerateTemplate(Component):
 
             # create the actual xml file
             filename = os.path.join(template_path, 'wiki.xml')
-            if os.path.exists(filename):
-                os.remove(filename)
             ET.ElementTree(root).write(filename)
             self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -154,8 +159,6 @@ class GenerateTemplate(Component):
 
             # create the xml file
             filename = os.path.join(self.template_dir_path, template_name, "attachment.xml")
-            if os.path.exists(filename):
-                os.remove(filename)
             ET.ElementTree(root).write(filename)
             self.log.info("File %s has been created at %s" % (filename, os.path.join(self.template_dir_path, template_name)))
 
@@ -164,8 +167,14 @@ class GenerateTemplate(Component):
             attachment_template_path = os.path.join(self.template_dir_path, template_name, 'attachments', 'wiki')
 
             # the directory we copy to can't exist before shutil.copytree()
-            if os.path.exists(attachment_template_path):
+            try:
                 shutil.rmtree(attachment_template_path)
+            except OSError as exception:
+                # no directory to remove
+                if exception.errno == errno.ENOENT:
+                    self.log.debug("No workflow directory at %s to remove", attachment_template_path)
+
+            # now copy the directory
             shutil.copytree(attachment_dir_path, attachment_template_path)
             self.log.info("Copied wiki attachments to %s", attachment_template_path)
 
@@ -192,8 +201,6 @@ class GenerateTemplate(Component):
 
         # create the xml file
         filename = os.path.join(template_path, 'ticket.xml')
-        if os.path.exists(filename):
-            os.remove(filename)
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -205,19 +212,27 @@ class GenerateTemplate(Component):
 
         # make a directory to hold workflows
         workflow_template_path = os.path.join(template_path, 'workflows')
-        if os.path.exists(workflow_template_path):
-            shutil.rmtree(workflow_template_path)
-        os.mkdir(workflow_template_path)
+        try:
+            os.mkdir(workflow_template_path)
+        except OSError as exception:
+            # if it already exists remove and create it 
+            if exception.errno == errno.EEXIST:
+                shutil.rmtree(workflow_template_path)
+                os.mkdir(workflow_template_path)
         self.log.info("Created a template workflow directory at %s", workflow_template_path)
 
         # copy the workflows into our new directory
         workflow_dir = os.path.join(self.env.path, 'workflows')
-        for workflow in os.listdir(workflow_dir):
-            if workflow.lower().endswith('.xml'):
-                full_file_name = os.path.join(workflow_dir, workflow)
-                if (os.path.isfile(full_file_name)):
-                    shutil.copy(full_file_name, workflow_template_path)
-                    self.log.info("%s moved to %s template directory", (workflow, workflow_template_path))
+        try:
+            for workflow in os.listdir(workflow_dir):
+                if workflow.lower().endswith('.xml'):
+                    full_file_name = os.path.join(workflow_dir, workflow)
+                    if (os.path.isfile(full_file_name)):
+                        shutil.copy(full_file_name, workflow_template_path)
+                        self.log.info("%s moved to %s template directory", (workflow, workflow_template_path))
+        except OSError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.debug("No workflows to export from current project.")
 
     def export_priorites(self, template_path):
         """Get the different ticket priority values from the enum table and
@@ -232,8 +247,6 @@ class GenerateTemplate(Component):
 
         # create the xml file
         filename = os.path.join(template_path, 'priority.xml')
-        if os.path.exists(filename):
-            os.remove(filename)
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -242,11 +255,16 @@ class GenerateTemplate(Component):
         the export of GIT repos - but we will come back to solve this 
         issue (probably via GIT clone) in a future release."""
 
-        old_repo_path = os.path.join("vc-repos", "svn", self.env.project_name)
+        # os.path.basename(self.env.path) is a workaround to get the project
+        # name without any spaces etc
+        old_repo_path = os.path.join("vc-repos", "svn", os.path.basename(self.env.path))
 
-        # Dump the file archive at the latest version (-rHEAD)
-        self.log.info("Dumping the file archive at %s into the project template directory", old_repo_path)
-        subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
+        if os.path.exists(old_repo_path):
+            # Dump the file archive at the latest version (-rHEAD)
+            subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
+            self.log.info("Dumped the file archive at %s into the project template directory", old_repo_path)
+        else:
+            add_notice(req, "Unable to export the file archive.")
 
     def export_groups(self, template_path):
         """Puts a list of all internal membership groups into an XML file. 
@@ -267,8 +285,6 @@ class GenerateTemplate(Component):
 
             # create the xml file
             filename = os.path.join(template_path, 'group.xml')
-            if os.path.exists(filename):
-                os.remove(filename)
             ET.ElementTree(root).write(filename)
             self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -283,8 +299,6 @@ class GenerateTemplate(Component):
 
         # create the xml file
         filename = os.path.join(template_path, 'permission.xml')
-        if os.path.exists(filename):
-            os.remove(filename)
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -305,8 +319,6 @@ class GenerateTemplate(Component):
 
         # save the xml file
         filename = os.path.join(template_path, 'list.xml')
-        if os.path.exists(filename):
-            os.remove(filename)
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -334,8 +346,6 @@ class GenerateTemplate(Component):
 
         # save the xml file in the template directory
         filename = os.path.join(template_path, 'milestone.xml')
-        if os.path.exists(filename):
-            os.remove(filename)
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -344,11 +354,14 @@ class GenerateTemplate(Component):
         as the author, the exact time and availability of the template."""
 
         filename = os.path.join(template_path, "info.txt")
-        f = file(filename, "w")
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        text = "Created - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s" \
-                % (time, req.authname, req.args['availability'], req.args['description'])
-        f.write(text)
+        try:
+            f = file(filename, "w")
+            time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            text = "Created - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s" \
+                    % (time, req.authname, req.args['availability'], req.args['description'])
+            f.write(text)
+        except IOError:
+            self.log.info("Unable to create new file info folder at %s", filename)
 
     # ITemplateProvider methods
 
