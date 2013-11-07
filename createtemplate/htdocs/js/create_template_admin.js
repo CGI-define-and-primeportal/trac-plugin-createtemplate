@@ -4,6 +4,14 @@ $(document).ready(function(){
     errorClass: 'ui-state-error'
   });
 
+  $("#template-info-toggle > li a").on("click", function() {
+    $(this).parent().next().slideToggle('fast');
+  });
+
+  $("#see-more-template-info").on("click", function () {
+    $("#template_info").slideToggle('fast');
+  });
+
   $('#name-question').click(function() {
     $('#template-name-dialog').dialog({
       title: 'More Information - Template Name',

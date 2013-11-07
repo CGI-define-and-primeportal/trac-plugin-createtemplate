@@ -24,7 +24,66 @@
       and already automated process.
     </div>
     <div py:if="success" class="box-success color-none">
-      <h3><i class="icon-ok-sign"></i> Congratulations! You created a new template for your project</h3>
+      <h3><i class="icon-ok-sign"></i> Congratulations! You created a new template! <a id="see-more-template-info">See more information.</a></h3>
+      <div id="template_info" class="hidden"> 
+        <p>The following data was exported from your project into a new template called $template_name:</p>
+        <ul id="template-info-toggle">
+          <py:if test="wiki_pages">
+            <li py:with="wiki_num=len(wiki_pages)"> <a>Wiki Pages - $wiki_num</a></li>
+              <ul class="hidden">
+                <li py:for="page in wiki_pages">$page</li>
+              </ul>
+          </py:if>
+          <py:if test="attachments">
+            <li py:with="att_num=len(attachments)"> <a>Wiki Attachments - $att_num</a></li>
+              <ul class="hidden" >
+                <li py:for="attachment in attachments">$attachment</li>
+              </ul>
+          </py:if>
+          <py:if test="ticket_types">
+            <li py:with="type_num=len(ticket_types)"> <a>Ticket Types - $type_num</a></li>
+              <ul class="hidden">
+                <li py:for="type in ticket_types">$type</li>
+              </ul>
+          </py:if>
+          <py:if test="workflow">
+            <li py:with="workflow_num=len(workflows)"> <a>Workflows - $workflow_num</a></li>
+              <ul class="hidden">
+                <li py:for="workflow in workflows">$workflow</li>
+              </ul>
+          </py:if>
+          <py:if test="priority">
+            <li py:with="pri_num=len(priority)"> <a>Priorities - $pri_num</a></li>
+              <ul class="hidden">
+                <li py:for="prio in priority">$prio</li>
+              </ul>
+          </py:if>
+          <py:if test="repos">
+            <li py:with="repo_num=len(repos)"> <a>Subversion Repositories - $repo_num</a></li>
+              <ul class="hidden">
+                <li py:for="repo in repos">$repo</li>
+              </ul>
+          </py:if>
+          <py:if test="milestones">
+            <li py:with="milestone_num=len(milestones)"> <a>Milestones - $milestone_num</a></li>
+              <ul class="hidden">
+                <li py:for="milestone in milestones">$milestone</li>
+              </ul>
+          </py:if>
+          <py:if test="groups">
+            <li py:with="group_num=len(groups)"> <a>Groups - $group_num</a></li>
+              <ul class="hidden">
+                <li py:for="group in groups">$group</li>
+              </ul>
+          </py:if>
+          <py:if test="lists">
+            <li py:with="lists_num=len(lists)"> <a>Mailing Lists - $lists_num</a></li>
+              <ul class="hidden">
+                <li py:for="list in lists">$list</li>
+              </ul>
+          </py:if>
+        </ul>
+      </div>
     </div>
     <div py:if="failure" class="box-warning color-none">
         <h3><i class="icon-warning-sign"></i> A template with the name ${template_name} already exists. Please try an alternative name.</h3>
