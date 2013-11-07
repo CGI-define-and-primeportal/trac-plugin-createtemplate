@@ -71,9 +71,9 @@ class GenerateTemplate(Component):
                     self.log.debug("Created directory for project template at", template_path)
                 except OSError as exception:
                     if exception.errno == errno.EEXIST:
-                        add_notice(req, "A template with the name %s already exists. "
-                                        "Please choose a different name." % template_name)
-                        return 'template_admin.html', {}
+                        data = {'failure':True,
+                                'template_name':template_name}
+                        return 'template_admin.html', data
 
                 # so far so good - now what data should we export
                 if 'wiki' in req.args:

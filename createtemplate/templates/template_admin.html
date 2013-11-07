@@ -26,6 +26,9 @@
     <div py:if="success" class="box-success color-none">
       <h3><i class="icon-ok-sign"></i> Congratulations! You created a new template for your project</h3>
     </div>
+    <div py:if="failure" class="box-warning color-none">
+        <h3><i class="icon-warning-sign"></i> A template with the name ${template_name} already exists. Please try an alternative name.</h3>
+    </div>
     <div id="template-create" class="box-primary color-none">
       <form id="createtemplateform" action="" method="post">
         <div>
