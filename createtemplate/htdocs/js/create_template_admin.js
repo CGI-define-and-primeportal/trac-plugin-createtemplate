@@ -43,17 +43,4 @@ $(document).ready(function(){
     });
   });
 
-  $('#availability-question').click(function() {
-    $('#template-availability-dialog').dialog({
-      title: 'More Information - Template Availability',
-      width: 400,
-      modal: true,
-      buttons: {
-        'Close': function() {
-          $(this).dialog('close');
-        }
-      }
-    });
-  });
-
 });

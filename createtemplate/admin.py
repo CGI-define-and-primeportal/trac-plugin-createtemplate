@@ -351,14 +351,14 @@ class GenerateTemplate(Component):
 
     def create_template_info_file(self, req, template_path):
         """We can store some extra metadata about the template creation - such 
-        as the author, the exact time and availability of the template."""
+        as the author and date."""
 
         filename = os.path.join(template_path, "info.txt")
         try:
             f = file(filename, "w")
             time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            text = "Created - %s.\nAuthor - %s.\nAvailability - %s.\nDescription - %s" \
-                    % (time, req.authname, req.args['availability'], req.args['description'])
+            text = "Created - %s.\nAuthor - %s.\nDescription - %s" \
+                    % (time, req.authname, req.args['description'])
             f.write(text)
         except IOError:
             self.log.info("Unable to create new file info folder at %s", filename)
