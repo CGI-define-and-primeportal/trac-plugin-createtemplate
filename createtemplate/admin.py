@@ -16,7 +16,7 @@ from trac.web.chrome import ITemplateProvider, add_script, add_notice
 from trac.admin.api import IAdminPanelProvider
 from trac.wiki.model import WikiPage
 from trac.wiki.api import WikiSystem
-from trac.ticket.model import Type, Milestone
+from trac.ticket import model
 from logicaordertracker.controller import LogicaOrderController
 from trac.perm import DefaultPermissionStore
 from trac.ticket import Priority
@@ -85,9 +85,10 @@ class GenerateTemplate(Component):
                 if 'ticket' in req.args:
                     data['ticket_types'] = self.export_ticket_types(template_path)
                     data['workflows'] = self.export_workflows(req, template_path)
-                    # we export permissions if we export tickets, else
-                    # the values availble in the priority field could be different
+                    # we export priority, version and components if we export tickets
                     data['priority'] = self.export_priorites(template_path)
+                    data['versions'] = self.export_versions(template_path)
+                    data['components'] = self.export_components(template_path)
                 if 'archive' in req.args:
                     data['repos'] = self.export_file_archive(req, os.path.join(template_path, template_name + '.dump.gz'))
                 if 'group' in req.args:
@@ -203,7 +204,7 @@ class GenerateTemplate(Component):
         # a list to return to the template with info about transaction
         successful_exports = list()
 
-        types = [ticket_type.name for ticket_type in Type.select(self.env)]
+        types = [ticket_type.name for ticket_type in model.Type.select(self.env)]
 
         ticket_types_dict = dict()
         controller = LogicaOrderController(self.env)
@@ -280,6 +281,55 @@ class GenerateTemplate(Component):
 
         # create the xml file
         filename = os.path.join(template_path, 'priority.xml')
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+        return successful_exports
+
+    def export_versions(self, template_path):
+        """Get the different ticket version values from the version table using 
+        the select class method and save the result into a XML file."""
+
+        # a list to return to the template with info about transaction
+        successful_exports = list()
+
+        # create the XML tree
+        self.log.info("Creating version XML file for template archive")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
+        root = ET.Element("ticket_versions", project=self.env.project_name, date=template_date)
+        for version in model.Version.select(self.env):
+            # not exporting time as this is unlikely to be relevant 
+            # to any new project using this template
+            ET.SubElement(root, "version_info", name=version.name, description=version.description)
+            successful_exports.append(version.name)
+
+        # create the xml file
+        filename = os.path.join(template_path, 'version.xml')
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s" % (filename, template_path))
+
+        return successful_exports
+
+    def export_components(self, template_path):
+        """Get the different ticket component values from the component table 
+        using the select class method and save the result into a XML file."""
+
+        # a list to return to the template with info about transaction
+        successful_exports = list()
+
+        # create the XML tree
+        self.log.info("Creating component XML file for template archive")
+        template_date = datetime.date.today().strftime("%Y-%m-%d")
+        root = ET.Element("ticket_components", project=self.env.project_name, date=template_date)
+        for component in model.Component.select(self.env):
+            # we don't save the owner as that user might not be a member
+            # of the new project
+            ET.SubElement(root, "component_info", name=component.name, 
+                          description=component.description)
+            successful_exports.append(component.name)
+
+        # create the xml file
+        filename = os.path.join(template_path, 'component.xml')
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
@@ -391,7 +441,7 @@ class GenerateTemplate(Component):
         self.env.log.info("Creating milestone XML file for template archive")
         template_date = datetime.date.today().strftime("%Y-%m-%d")
         root = ET.Element("milestones", project=self.env.project_name, date=template_date)
-        all_milestones = Milestone.select(self.env, include_children=True)
+        all_milestones = model.Milestone.select(self.env, include_children=True)
         for milestone in all_milestones:
             ms = ET.SubElement(root, "milestone_info", name=milestone.name)
             # we need to do some checking incase the attribute has a None type

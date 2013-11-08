@@ -58,6 +58,18 @@
                 <li py:for="prio in priority">$prio</li>
               </ul>
           </py:if>
+          <py:if test="versions">
+            <li py:with="version_num=len(versions)"> <a>Versions - $version_num</a></li>
+              <ul class="hidden">
+                <li py:for="version in versions">$version</li>
+              </ul>
+          </py:if>
+          <py:if test="components">
+            <li py:with="component_num=len(components)"> <a>Components - $component_num</a></li>
+              <ul class="hidden">
+                <li py:for="component in components">$component</li>
+              </ul>
+          </py:if>
           <py:if test="repos">
             <li py:with="repo_num=len(repos)"> <a>Subversion Repositories - $repo_num</a></li>
               <ul class="hidden">
@@ -99,9 +111,9 @@
           <textarea class="required xsmall" name="description"></textarea>
         </div>
         <div>
-          <label for="components" class="fixed-width-label">Components To Include  <i id="component-question" class="icon-question-sign"></i></label>
+          <label for="components" class="fixed-width-label">To Include  <i id="component-question" class="icon-question-sign"></i></label>
           <input type="checkbox" name="wiki" value="wiki" checked="yes"/> Wiki Pages and Attachments
-          <input type="checkbox" name="ticket" value="ticket" checked="yes"/> Ticket Types, Workflows, Custom Fields, Components and Priorites 
+          <input type="checkbox" name="ticket" value="ticket" checked="yes"/> Ticket Types, Workflows, Custom Fields, Components, Priorites and Versions
           <input type="checkbox" name="archive" value="archive" checked="yes"/> File Archive Folder Structure
           <input type="checkbox" name="milestone" value="milestone" checked="yes"/> Milestones 
           <input type="checkbox" name="list" value="list" checked="yes"/> Mailing Lists 

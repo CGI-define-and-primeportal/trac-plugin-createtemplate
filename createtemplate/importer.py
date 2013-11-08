@@ -11,7 +11,7 @@ except ImportError:
 
 from trac.core import *
 from trac.wiki.model import WikiPage
-from trac.ticket.model import Type, Milestone
+from trac.ticket import model
 from trac.config import PathOption
 from trac.util.datefmt import utc, parse_date
 
@@ -98,7 +98,10 @@ class ImportTemplate(Component):
 
         This function takes inspiration from define/env.py and the
         _clean_populate() method - although it allows us to only 
-        delete certain records, not only full tables."""
+        delete certain records, not only full tables.
+
+        First we deal with seperate tables such as the milestone, group
+        and version tables - then we move onto the enum table."""
 
         # for vales stored in the enum table we only want to clear certain rows
         enum_to_clear = list()
@@ -113,6 +116,12 @@ class ImportTemplate(Component):
                     self.import_groups(template_name)
                 elif filename.lower().endswith("milestone.xml"):
                     self.import_milestones(template_name)
+                # we don't import version right now as this
+                # raises a bug when we import ticket types
+                #elif filename.lower().endswith("version.xml"):
+                    #self.import_versions(template_name)
+                elif filename.lower().endswith("component.xml"):
+                    self.import_components(template_name)
                 elif filename.lower().endswith("priority.xml"):
                     enum_to_clear.append("priority")
                 elif filename.lower().endswith("ticket.xml"):
@@ -198,7 +207,7 @@ class ImportTemplate(Component):
         try:
             tree = ET.ElementTree(file=path)
             for m in tree.getroot():
-                milestone = Milestone(self.env)
+                milestone = model.Milestone(self.env)
                 if 'name' in m.attrib:
                     milestone.name = m.attrib['name']
                 if 'start' in m.attrib:
@@ -217,6 +226,62 @@ class ImportTemplate(Component):
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to milestone.xml at %s does not exist. "
                               "Unable to import milestone data from tempalte.", path)
+
+    def import_versions(self, template_name):
+        """Create ticket verions from template after clearing the existing
+        data in the version table."""
+
+        @self.env.with_transaction()
+        def clear_perms(db):
+            """Clears the whole version table of default data. You can't pass
+            a table name as an argument for parameter substitution, so it
+            has to be hard coded."""
+            cursor = db.cursor()
+            self.log.info("Clearing version table")
+            cursor.execute("DELETE FROM version")
+
+        self.log.info("Creating versions from template")
+        path = os.path.join('templates', template_name, "version.xml")
+        try:
+            tree = ET.ElementTree(file=path)
+            for version in tree.getroot():
+                ver = model.Version(self.env)
+                ver.name = version.attrib['name']
+                ver.description = version.attrib['description']
+                ver.insert()
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to version.xml at %s does not exist. Unable to "
+                              "import version data from template.", path)
+
+    def import_components(self, template_name):
+        """Create project component fields from template after clearing the 
+        existing default data in the component table."""
+
+        @self.env.with_transaction()
+        def clear_perms(db):
+            """Clears the whole component table of default data. You can't pass
+            a table name as an argument for parameter substitution, so it
+            has to be hard coded."""
+            cursor = db.cursor()
+            self.log.info("Clearing component table")
+            cursor.execute("DELETE FROM component")
+
+        self.log.info("Creating components from template")
+        path = os.path.join('templates', template_name, "component.xml")
+        try:
+            tree = ET.ElementTree(file=path)
+            for component in tree.getroot():
+                # not exporting owner as they might not be a member
+                # of the new project who use this template
+                comp = model.Component(self.env)
+                comp.name = component.attrib['name']
+                comp.description = component.attrib['description']
+                comp.insert()
+        except IOError as exception:
+            if exception.errno == errno.ENOENT:
+                self.log.info("Path to component.xml at %s does not exist. Unable to "
+                              "import component data from template.", path)
 
     def import_enum(self, template_name, types_to_remove, project_name):
         """Removes types from the enum table and then inserts data from the 
@@ -254,7 +319,7 @@ class ImportTemplate(Component):
                                   VALUES (%s, %s, %s)
                                   """, values)
 
-        # now import ticket types from template
+        # now import ticket types and associated data from template
         # we use LogicaOrderController rather than a straight SQL insert
         self.import_ticket_types(template_path) 
         self.import_workflows(template_path)
