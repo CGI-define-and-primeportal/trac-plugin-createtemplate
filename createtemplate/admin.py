@@ -12,7 +12,7 @@ except ImportError:
     import xml.etree.ElementTree as ET
 
 from trac.core import *
-from trac.web.chrome import ITemplateProvider, add_script, add_notice
+from trac.web.chrome import ITemplateProvider, add_script, add_notice, add_script_data
 from trac.admin.api import IAdminPanelProvider
 from trac.wiki.model import WikiPage
 from trac.wiki.api import WikiSystem
@@ -25,6 +25,7 @@ from trac.config import PathOption
 
 from simplifiedpermissionsadminplugin.model import Group
 from mailinglistplugin.model import Mailinglist
+from createtemplate.api import ProjectTemplateAPI
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
@@ -45,6 +46,14 @@ class GenerateTemplate(Component):
 
     def render_admin_panel(self, req, category, page, path_info):
         if page == 'create_template':
+
+            # we always need to load JS regardless of POST or GET
+            add_script(req, 'createtemplate/js/create_template_admin.js')
+            # we also need to let JS know what templates currently exist
+            # so we can validate client side
+            used_names = ProjectTemplateAPI(self.env).get_all_templates()
+            add_script_data(req, {'used_names':used_names})
+
             if req.method == 'POST':
                 # server side check that there is a template name
                 # there is jquery validation server side too
@@ -61,11 +70,9 @@ class GenerateTemplate(Component):
                         self.log.debug("Template directory already exists at %s", self.template_dir_path)
 
                 # if there is already a template with the same name we prompt user for an alternative
-                # we can catch this on client side when he have a way to
-                # get all templates on different servers
+                # we can catch this on client side with JS too
                 template_name = req.args['template-name']
                 template_path = os.path.join(self.template_dir_path, template_name)
-
                 try:
                     os.mkdir(template_path)
                     self.log.debug("Created directory for project template at", template_path)
@@ -105,13 +112,10 @@ class GenerateTemplate(Component):
                 # create an info file to store the exact time of template
                 # creation, username of template creator etc.
                 self.create_template_info_file(req, template_path)
-
-                add_script(req, 'createtemplate/js/create_template_admin.js')
                 data['success'] = True
                 data['template_name'] = template_name
                 return 'template_admin.html', data
             else:
-                add_script(req, 'createtemplate/js/create_template_admin.js')
                 return 'template_admin.html', {}
 
     def export_wiki_pages(self, template_path):

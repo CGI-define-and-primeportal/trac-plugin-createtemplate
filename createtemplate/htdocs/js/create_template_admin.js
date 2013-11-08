@@ -4,6 +4,16 @@ $(document).ready(function(){
     errorClass: 'ui-state-error'
   });
 
+  // check that the name entered into the template name field is not already used
+  $("[name='template-name']").blur(function() {
+    if ($.inArray($(this).val(), used_names) != -1) {
+      $(this).addClass("ui-state-error");
+      // add html
+      $(this).parent().append( '<label for="template-name" class="ui-state-error"> \
+                               This template name has already been used.</label>' );
+    }
+  });
+
   $("#template-info-toggle > li a").on("click", function() {
     $(this).parent().next().slideToggle('fast');
   });
