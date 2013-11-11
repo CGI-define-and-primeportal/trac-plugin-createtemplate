@@ -61,14 +61,6 @@ class GenerateTemplate(Component):
                     add_notice(req, "Please enter a template name")
                     return 'template_admin.html', {}
 
-                # create a directory to hold templates if there isn't already one
-                try:
-                    os.mkdir(self.template_dir_path)
-                    self.log.debug("Created template directory at %s", self.template_dir_path)
-                except OSError as exception:
-                    if exception.errno == errno.EEXIST:
-                        self.log.debug("Template directory already exists at %s", self.template_dir_path)
-
                 # if there is already a template with the same name we prompt user for an alternative
                 # we can catch this on client side with JS too
                 template_name = req.args['template-name']
