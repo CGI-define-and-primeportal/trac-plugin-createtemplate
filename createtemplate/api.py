@@ -3,6 +3,7 @@ import itertools
 from trac.core import *
 from tracrpc.api import IXMLRPCHandler
 from trac.config import PathOption
+from trac.resource import ResourceNotFound
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
@@ -15,18 +16,18 @@ class ProjectTemplatesRPC(Component):
         return 'project_templates'
 
     def xmlrpc_methods(self):
-        yield ('XML_RPC', (list,), self.getTemplatesNames)
-        yield ('XML_RPC', (dict, string), self.getPage)
+        yield (None, ((list,),), self.getTemplatesNames)
+        yield (None, ((dict, str),), self.getTemplateInformation)
 
-    def getTemplatesNames(self):
+    def getTemplatesNames(self, req):
         """Get a list of all project templates available."""
 
         return ProjectTemplateAPI(self.env).get_all_templates()
 
-    def getTemplateInformation(self, template_name):
+    def getTemplateInformation(self, req, template_name):
         """Gets information about a specific project template. This includes 
         the date it was created and the description from the info file, as well 
-        as a list of all the components exported. Returns a dcitonary."""
+        as a list of all the components exported. Returns a dictionary."""
 
         return ProjectTemplateAPI(self.env).get_template_information(template_name)
 
@@ -83,4 +84,5 @@ class ProjectTemplateAPI(Component):
 
         else:
             # no directrory at the path specified
-            return 'There is no such template with the name %s' % template_name
+            raise ResourceNotFound('There is no such template with the name %s'
+                                   % template_name)
