@@ -10,137 +10,109 @@
     <title>Administration: Create Project Template</title>
   </head>
   <body>
-    <h1>
-      Create Project Template
-    </h1>
-    <div id="about-template-create">
-      <i class="icon-info-sign"></i>
-      Create a template of your project as it currently stands. 
-      This can include all wiki pages, ticket types, workflows, milestone, mailing lists, 
-      membership groups and the latest revision from your Subversion repository (currently we
-      do not offer the ability to export GIT repositories). This can then be used 
-      when a new #define project is created. Please note that this is not an 
-      appropriate means of backing up your project content - that is a very much seperate,
-      and already automated process.
-    </div>
-    <div py:if="success" class="box-success color-none">
-      <h3><i class="icon-ok-sign"></i> Congratulations! You created a new template! <a id="see-more-template-info">See more information.</a></h3>
-      <div id="template_info" class="hidden"> 
-        <p>The following data was exported from your project into a new template called $template_name:</p>
-        <ul id="template-info-toggle">
-          <py:if test="wiki_pages">
-            <li py:with="wiki_num=len(wiki_pages)"> <a>Wiki Pages - $wiki_num</a></li>
-              <ul class="hidden">
-                <li py:for="page in wiki_pages">$page</li>
-              </ul>
-          </py:if>
-          <py:if test="attachments">
-            <li py:with="att_num=len(attachments)"> <a>Wiki Attachments - $att_num</a></li>
-              <ul class="hidden" >
-                <li py:for="attachment in attachments">$attachment</li>
-              </ul>
-          </py:if>
-          <py:if test="ticket_types">
-            <li py:with="type_num=len(ticket_types)"> <a>Ticket Types - $type_num</a></li>
-              <ul class="hidden">
-                <li py:for="type in ticket_types">$type</li>
-              </ul>
-          </py:if>
-          <py:if test="workflow">
-            <li py:with="workflow_num=len(workflows)"> <a>Workflows - $workflow_num</a></li>
-              <ul class="hidden">
-                <li py:for="workflow in workflows">$workflow</li>
-              </ul>
-          </py:if>
-          <py:if test="priority">
-            <li py:with="pri_num=len(priority)"> <a>Priorities - $pri_num</a></li>
-              <ul class="hidden">
-                <li py:for="prio in priority">$prio</li>
-              </ul>
-          </py:if>
-          <py:if test="versions">
-            <li py:with="version_num=len(versions)"> <a>Versions - $version_num</a></li>
-              <ul class="hidden">
-                <li py:for="version in versions">$version</li>
-              </ul>
-          </py:if>
-          <py:if test="components">
-            <li py:with="component_num=len(components)"> <a>Components - $component_num</a></li>
-              <ul class="hidden">
-                <li py:for="component in components">$component</li>
-              </ul>
-          </py:if>
-          <py:if test="repos">
-            <li py:with="repo_num=len(repos)"> <a>Subversion Repositories - $repo_num</a></li>
-              <ul class="hidden">
-                <li py:for="repo in repos">$repo</li>
-              </ul>
-          </py:if>
-          <py:if test="milestones">
-            <li py:with="milestone_num=len(milestones)"> <a>Milestones - $milestone_num</a></li>
-              <ul class="hidden">
-                <li py:for="milestone in milestones">$milestone</li>
-              </ul>
-          </py:if>
-          <py:if test="groups">
-            <li py:with="group_num=len(groups)"> <a>Groups - $group_num</a></li>
-              <ul class="hidden">
-                <li py:for="group in groups">$group</li>
-              </ul>
-          </py:if>
-          <py:if test="lists">
-            <li py:with="lists_num=len(lists)"> <a>Mailing Lists - $lists_num</a></li>
-              <ul class="hidden">
-                <li py:for="list in lists">$list</li>
-              </ul>
-          </py:if>
-        </ul>
+    <div id="content" class="create-template">
+      <h1>Create Project Template</h1>
+      <div id="about-template-create">
+        <p>
+          Create a template of your project as it currently stands.
+          This can include all wiki pages, ticket types, workflows, milestone,
+          mailing lists, membership groups and the latest revision from your
+          Subversion repository (we currently do not offer the ability to export
+          Git repositories). The template can then be used when a new #define project is created. 
+        </p>
       </div>
-    </div>
-    <div py:if="failure" class="box-warning color-none">
-        <h3><i class="icon-warning-sign"></i> A template with the name ${template_name} already exists. Please try an alternative name.</h3>
-    </div>
-    <div id="template-create" class="box-primary color-none">
-      <form id="createtemplateform" action="" method="post">
-        <div>
-          <label for="template-name" class="fixed-width-label">Template Name  <i id="name-question" class="icon-question-sign"></i></label>
-          <input class="required" type="text" name="template-name"/>
+      <div py:if="success" class="box-success color-none">
+        <h3>
+          <i class="icon-ok-sign"></i>
+          Congratulations! You created a new template!
+          <a id="template-info-toggle">More information.</a>
+        </h3>
+        <div id="template-info" class="hidden"> 
+          <p>
+            The following data was exported from your project into a new template called '${template_name}':
+          </p>
+          <ul id="template-component-toggle">
+            <py:for each="label, component in (('Wiki Pages', wiki_pages),
+                                               ('Wiki Attachments', attachments),
+                                               ('Ticket Types', ticket_types),
+                                               ('Workflows', workflow),
+                                               ('Priorities', priority),
+                                               ('Versions', versions),
+                                               ('Components', components),
+                                               ('Subversion Repositories', repos),
+                                               ('Milestones', milestones),
+                                               ('Groups', groups),
+                                               ('Mailing lists', lists))">
+              <py:if test="component">
+                <li>
+                  <a>${label} (${len(component)})</a>
+                  <ul class="hidden">
+                    <li py:for="individual in component">${individual}</li>
+                  </ul>
+                </li>
+              </py:if>
+            </py:for>
+          </ul>
         </div>
-        <div>
-          <label for="template-description" class="fixed-width-label">Template Description  <i id="description-question" class="icon-question-sign"></i></label>
-          <textarea class="required xsmall" name="description"></textarea>
-        </div>
-        <div>
-          <label for="components" class="fixed-width-label">To Include  <i id="component-question" class="icon-question-sign"></i></label>
-          <input type="checkbox" name="wiki" value="wiki" checked="yes"/> Wiki Pages and Attachments
-          <input type="checkbox" name="ticket" value="ticket" checked="yes"/> Ticket Types, Workflows, Custom Fields, Components, Priorites and Versions
-          <input type="checkbox" name="archive" value="archive" checked="yes"/> File Archive Folder Structure
-          <input type="checkbox" name="milestone" value="milestone" checked="yes"/> Milestones 
-          <input type="checkbox" name="list" value="list" checked="yes"/> Mailing Lists 
-          <input type="checkbox" name="group" value="group" checked="yes"/> Groups and Permissions
-        </div>
-        <button type="submit" class="btn btn-mini btn-primary" name="template-submit" value="create">
-          <i class="icon-hdd icon-white"></i> Create Template
+      </div>
+      <div py:if="failure" class="box-warning">
+        <i class="icon-warning-sign"></i>
+        <strong>
+          A template with the name '${template_name}' already exists.
+          Please try an alternative name.
+        </strong>
+      </div>
+      <form id="create-template-form" class="form-block box-primary"
+            action="" method="post">
+
+        <label for="template_name">
+          Template Name
+        </label>
+        <input id="template-name" class="required" type="text" name="template_name" />
+
+        <label for="template-description">
+          Template Description
+          <i id="description-handle" class="icon-info-sign color-muted-dark"></i>
+        </label>
+        <textarea class="required xsmall" name="description"></textarea>
+
+        <label for="template-components">
+          Components
+          <i id="component-handle" class="icon-info-sign color-muted-dark"></i>
+        </label>
+        <select name="template_components" id="template-components" multiple="multiple">
+          <option py:for="value, label in tpl_components" value="${value}"
+                  py:content="label" selected="selected"></option>
+        </select>
+
+        <button type="submit" class="btn btn-mini btn-primary"
+                name="template-submit" value="create">
+          <i class="icon-hdd"></i> Create Template
         </button>
       </form>
-    </div>
-    <div class="box-info color-none">
-      <p>To remove a previously created template, please email servicedesk@logica.com</p>
-    </div>
-    <div id="template-name-dialog" class="hidden">
-      The name should uniqley identify this template.
-    </div>
-    <div id="template-description-dialog" class="hidden">
-      Please provide a few words to describe the purpose of this template. 
-      For example, does it provide a template for teams implementing a SCRUM
-      methodology or was it designed to be used by a particular project etc.
-    </div>
-    <div id="template-component-dialog" class="hidden">
-      <p>You can customise which parts of your project you export into a template. 
-      For example you might only want to export wiki pages, mailing lists and 
-      membership groups. By default all components are exported.</p>
-      <p>When a new project is created with your template, default #define data will
-      be used if you have not exported that component in your template.</p>
+      <div class="box-info">
+        <i class="icon-info-sign"></i>
+        To remove a previously created template, please email servicedesk@logica.com
+      </div>
+      <div id="description-dialog" title="Template description" class="hidden">
+        <p>
+          Please provide a few words to describe the purpose of the template.
+          In particular, is it designed for a particular project, or
+          is it useful for any teams which implement specific methodologies (e.g Scrum,
+          Waterfall etc.)
+        </p>
+      </div>
+      <div id="component-dialog" title="Template components" class="hidden">
+        <p>
+          You can customise which parts of your project you export into a template. 
+          For example you might only want to export wiki pages, mailing lists and 
+          membership groups. By default all components are exported.
+        </p>
+        <p>
+          When a new project is created with your template, default #define data will
+          be used if you have not exported that component in your template.
+        </p>
+      </div>
     </div>
   </body>
 </html>

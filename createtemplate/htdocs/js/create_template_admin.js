@@ -1,64 +1,65 @@
-$(document).ready(function(){
+var form = {
 
-  $("#createtemplateform").validate({
-    errorClass: 'ui-state-error'
-  });
+  dialogs: ["description", "component"],
 
-  // check that the name entered into the template name field is not already used
-  $("[name='template-name']").blur(function() {
-    if ($.inArray($(this).val(), used_names) != -1) {
-      $(this).addClass("ui-state-error");
-      // add html
-      $(this).parent().append( '<label for="template-name" class="ui-state-error"> \
-                               This template name has already been used.</label>' );
-    }
-  });
+  init: function() {
+    form.$container = $("#create-template-form");
+    form.$name = $("#template-name");
+    form.draw_dialogs();
+    form.init_validation();
+    $("#template-components").select2({
+      width: "off"
+    });
+    form.events();
+  },
 
-  $("#template-info-toggle > li a").on("click", function() {
-    $(this).parent().next().slideToggle('fast');
-  });
+  draw_dialogs: function() {
+    $.each(form.dialogs, function(__, name) {
+      var $handle = $("#" + name + "-handle"),
+          $dialog = $("#" + name + "-dialog");
 
-  $("#see-more-template-info").on("click", function () {
-    $("#template_info").slideToggle('fast');
-  });
-
-  $('#name-question').click(function() {
-    $('#template-name-dialog').dialog({
-      title: 'More Information - Template Name',
-      width: 400,
-      modal: true,
-      buttons: {
-        'Close': function() {
-          $(this).dialog('close');
+      $dialog.dialog({
+        modal: true,
+        autoOpen: false,
+        buttons: {
+          Close: function() {
+            $dialog.dialog("close");
+          }
         }
+      });
+
+      $handle.on("click", function() {
+        $dialog.dialog("open");
+      });
+    });
+  },
+
+  init_validation: function() {
+    // Add validation method to check unique template name
+    $.validator.addMethod("unique", function(val) {
+      return $.inArray(val, window.usedNames) == -1;
+    }, "This template name has already been used");
+
+    form.$container.validate({
+      errorClass: "ui-state-error",
+      rules: {
+        "template-name": { unique: true }
       }
     });
-  });
+  },
 
-  $('#description-question').click(function() {
-    $('#template-description-dialog').dialog({
-      title: 'More Information - Template Description',
-      width: 400,
-      modal: true,
-      buttons: {
-        'Close': function() {
-          $(this).dialog('close');
-        }
-      }
-    });
-  });
+  toggle_more_info: function() {
+    $("#template-info").slideToggle();
+  },
 
-  $('#component-question').click(function() {
-    $('#template-component-dialog').dialog({
-      title: 'More Information - Template Options',
-      width: 400,
-      modal: true,
-      buttons: {
-        'Close': function() {
-          $(this).dialog('close');
-        }
-      }
-    });
-  });
+  toggle_components: function() {
+    $(this).next().slideToggle();
+  },
 
-});
+  events: function() {
+    $("#template-info-toggle").on("click", form.toggle_more_info);
+    $("a", "#template-component-toggle").on("click", form.toggle_components);
+  }
+};
+
+$(document).ready(form.init);

@@ -47,23 +47,35 @@ class GenerateTemplate(Component):
     def render_admin_panel(self, req, category, page, path_info):
         if page == 'create_template':
 
+            data = dict()
+
             # we always need to load JS regardless of POST or GET
             add_script(req, 'createtemplate/js/create_template_admin.js')
             # we also need to let JS know what templates currently exist
             # so we can validate client side
             used_names = ProjectTemplateAPI(self.env).get_all_templates()
-            add_script_data(req, {'used_names':used_names})
+            add_script_data(req, { 'usedNames':used_names })
+            
+            # Send all available options to the template
+            data['tpl_components'] = (("wiki", "Wiki pages and attachments"),
+                                      ("ticket", "Ticket types, workflows, "
+                                                 "custom fields, components, "
+                                                 "priorities and versions"),
+                                      ("archive", "Archive folder structure"),
+                                      ("milestone", "Milestones"),
+                                      ("list", "Mailing lists"),
+                                      ("group", "Groups and permissions"))
 
             if req.method == 'POST':
                 # server side check that there is a template name
                 # there is jquery validation server side too
-                if not req.args['template-name']:
+                if not req.args['template_name']:
                     add_notice(req, "Please enter a template name")
-                    return 'template_admin.html', {}
+                    return 'template_admin.html', data
 
                 # if there is already a template with the same name we prompt user for an alternative
                 # we can catch this on client side with JS too
-                template_name = req.args['template-name']
+                template_name = req.args['template_name']
                 template_path = os.path.join(self.template_dir_path, template_name)
                 try:
                     os.mkdir(template_path)
@@ -77,29 +89,31 @@ class GenerateTemplate(Component):
                 # so far so good
                 # we now call functions which create the XML template files
                 # and append that data to a data dict we return to the template
-                data = dict()
-                if 'wiki' in req.args:
-                    data['wiki_pages'] = self.export_wiki_pages(template_path)
-                    data['attachments'] = self.export_wiki_attachments(req, template_name)
-                if 'ticket' in req.args:
-                    data['ticket_types'] = self.export_ticket_types(template_path)
-                    data['workflows'] = self.export_workflows(req, template_path)
-                    # we export priority, version and components if we export tickets
-                    data['priority'] = self.export_priorites(template_path)
-                    data['versions'] = self.export_versions(template_path)
-                    data['components'] = self.export_components(template_path)
-                if 'archive' in req.args:
-                    data['repos'] = self.export_file_archive(req, os.path.join(template_path, template_name + '.dump.gz'))
-                if 'group' in req.args:
-                    data['groups'] = self.export_groups(template_path)
-                    # we export permissions only if groups are selected, 
-                    # otherwise the permissions table might refer to groups
-                    # which don't exist in the project
-                    data['perms'] = self.export_permissions(template_path)
-                if 'list' in req.args:
-                    data['lists'] = self.export_lists(template_path)
-                if 'milestone' in req.args:
-                    data['milestones'] = self.export_milestones(template_path)
+                if 'template_components' in req.args:
+                    options = req.args['template_components']
+
+                    if 'wiki' in options:
+                        data['wiki_pages'] = self.export_wiki_pages(template_path)
+                        data['attachments'] = self.export_wiki_attachments(req, template_name)
+                    if 'ticket' in options:
+                        data['ticket_types'] = self.export_ticket_types(template_path)
+                        data['workflows'] = self.export_workflows(req, template_path)
+                        # we export priority, version and components if we export tickets
+                        data['priority'] = self.export_priorites(template_path)
+                        data['versions'] = self.export_versions(template_path)
+                        data['components'] = self.export_components(template_path)
+                    if 'archive' in options:
+                        data['repos'] = self.export_file_archive(req, os.path.join(template_path, template_name + '.dump.gz'))
+                    if 'group' in options:
+                        data['groups'] = self.export_groups(template_path)
+                        # we export permissions only if groups are selected, 
+                        # otherwise the permissions table might refer to groups
+                        # which don't exist in the project
+                        data['perms'] = self.export_permissions(template_path)
+                    if 'list' in options:
+                        data['lists'] = self.export_lists(template_path)
+                    if 'milestone' in options:
+                        data['milestones'] = self.export_milestones(template_path)
 
                 # create an info file to store the exact time of template
                 # creation, username of template creator etc.
@@ -108,7 +122,7 @@ class GenerateTemplate(Component):
                 data['template_name'] = template_name
                 return 'template_admin.html', data
             else:
-                return 'template_admin.html', {}
+                return 'template_admin.html', data
 
     def export_wiki_pages(self, template_path):
         """Get data for each wiki page that has not been deleted and place
