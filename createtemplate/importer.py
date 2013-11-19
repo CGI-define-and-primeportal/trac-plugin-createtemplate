@@ -13,7 +13,7 @@ from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket import model
 from trac.config import PathOption
-from trac.util.datefmt import utc, parse_date
+from trac.util.datefmt import parse_date
 
 from logicaordertracker.controller import LogicaOrderController
 from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
@@ -28,9 +28,12 @@ class ImportTemplate(Component):
                     doc="The default path for the project template directory")
 
     def import_wiki_pages(self, template_name):
-        """Creates wiki pages inside the project using data extracted from
-        an XML file. We don't set the author or version as that wouldn't 
-        be applicable to a new project."""
+        """Creates wiki pages from wiki.xml template file.
+
+        Creates wiki pages inside the project using data extracted from
+        an wiki.ml file. We don't set the author or version as that wouldn't 
+        be applicable to a new project.
+        """
 
         # open the wiki XML file, parse the data and create wiki pages
         full_path = os.path.join('templates', template_name, 'wiki.xml')
@@ -48,8 +51,11 @@ class ImportTemplate(Component):
                               "to import wiki pages from template.", full_path)
 
     def import_wiki_attachments(self, template_name, project_name):
-        """Imports wiki attachment files and inserts associated data into 
-        the attachment wiki table"""
+        """Imports wiki attachments from template.
+
+        Imports wiki attachment files and inserts associated data into 
+        the attachment wiki table.
+        """
 
         # check that there are attachments to import
         template_attachment_path = os.path.join('templates', template_name, 'attachments', 'wiki')
@@ -93,15 +99,18 @@ class ImportTemplate(Component):
                                       VALUES (%s, %s, %s, %s, %s)""", attachment_info)
 
     def template_populate(self, template_name, project_name):
-        """Clears tables of define default data and repopulates them with 
-        template data taken from XML files.
+        """Clears default data and inserts template specific data from xml files.
+
+        Clears tables of define/trac default data and repopulates them with 
+        template data taken from various XML files.
 
         This function takes inspiration from define/env.py and the
         _clean_populate() method - although it allows us to only 
         delete certain records, not only full tables.
 
         First we deal with seperate tables such as the milestone, group
-        and version tables - then we move onto the enum table."""
+        and version tables - then we move onto the enum table.
+        """
 
         # for vales stored in the enum table we only want to clear certain rows
         enum_to_clear = list()
@@ -134,13 +143,16 @@ class ImportTemplate(Component):
                               "Import of template data failed.", dir_path)
 
     def import_perms(self, template_name):
-        """Parses the permissions XML file to get the data we need to insert
+        """Creates permissions from data stored in permission.xml.
+
+        Parses the permissions XML file to get the data we need to insert
         into the permissions table. If we have this data we clear the existing
         permission data, and then insert the template data with an executemany()
         cursor method.
 
         If we don't create a perm_data list, we exit the function and 
-        continue to use default data."""
+        continue to use default data.
+        """
 
         # parse the tree to get username, action data
         path = os.path.join('templates', template_name, "permission.xml")
@@ -167,8 +179,10 @@ class ImportTemplate(Component):
                                   VALUES (%s, %s)""", perm_data)
 
     def import_groups(self, template_name):
-        """Create project groups from templates after clearing the existing
-        data in the groups table."""
+        """Create project groups from group.xml template file.
+
+        First we clear the existing data in the groups table and then we insert
+        group data taken from the group.xml file."""
 
         @self.env.with_transaction()
         def clear_perms(db):
@@ -191,8 +205,11 @@ class ImportTemplate(Component):
                               "import group data from template.", path)
 
     def import_milestones(self, template_name):
-        """Deletes existing trac default milestones and creates new ones
-        based on the information in milestone XML template"""
+        """Create project milestones from milestone.xml template file.
+
+        Deletes existing trac default milestones and creates new ones
+        based on the information in milestone XML template.
+        """
 
         @self.env.with_transaction()
         def clear_milestones(db):
@@ -228,8 +245,11 @@ class ImportTemplate(Component):
                               "Unable to import milestone data from tempalte.", path)
 
     def import_versions(self, template_name):
-        """Create ticket verions from template after clearing the existing
-        data in the version table."""
+        """Create project milestones from milestone.xml template file.
+
+        Create ticket verions from template after clearing the existing
+        data in the version table.
+        """
 
         @self.env.with_transaction()
         def clear_perms(db):
@@ -255,8 +275,11 @@ class ImportTemplate(Component):
                               "import version data from template.", path)
 
     def import_components(self, template_name):
-        """Create project component fields from template after clearing the 
-        existing default data in the component table."""
+        """Create project components from component.xml template file.
+
+        Create project component fields from template after clearing the 
+        existing default data in the component table.
+        """
 
         @self.env.with_transaction()
         def clear_perms(db):
@@ -325,9 +348,11 @@ class ImportTemplate(Component):
         self.import_workflows(template_path)
 
     def import_ticket_types(self, template_path):
-        """Create ticket types using the import functionality from 
-        LogicaOrderController and data from a ticket type template 
-        XML."""
+        """Imports ticket types from ticket.xml template file.
+
+        Create ticket types using the import functionality from 
+        LogicaOrderController and data from a ticket type template XML.
+        """
 
         # get ticket info in JSON format from XML file
         controller = LogicaOrderController(self.env)
@@ -345,8 +370,11 @@ class ImportTemplate(Component):
                               "Unable to import tickets from tempalte.", path)
 
     def import_workflows(self, template_name):
-        """Copies all workflow files from the template directory to our new 
-        project's workflow directory."""
+        """Imports workflows from template workflow directory.
+
+        Copies all workflow files from the template directory to our new 
+        project's workflow directory.
+        """
 
         template_workflow_path = os.path.join('templates', template_name, 'workflows')
         project_workflow_path = os.path.join(self.env.path, 'workflows')
@@ -367,8 +395,7 @@ class ImportTemplate(Component):
                               "not exist. Unable to import workflows.", template_workflow_path)
 
     def import_mailinglist(self, template_name):
-        """Create new mailing lists based on the mailng list XML 
-        template."""
+        """Creates project mailing lists from list.xml template file."""
 
         path = os.path.join('templates', template_name, 'list.xml')
         try:
@@ -390,8 +417,11 @@ class ImportTemplate(Component):
         # mailinglist.subscribe(group='project_group', poser=True)
 
     def import_file_archive(self, template_name, project_name):
-        """Create a new subversion repository using the dump file in 
-        the template directory."""
+        """Import the file archive from template directory.
+        
+        Create a new subversion repository using the dump file in 
+        the template directory. We don't support Git right now.
+        """
 
         old_repo_path = os.path.join('templates', template_name,  template_name + '.dump.gz')
         new_repo_path = os.path.join('vc-repos', 'svn', project_name)

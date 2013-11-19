@@ -4,6 +4,7 @@ import datetime
 import shutil
 import subprocess
 import errno
+import re
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
 try:
@@ -26,6 +27,7 @@ from trac.config import PathOption
 from simplifiedpermissionsadminplugin.model import Group
 from mailinglistplugin.model import Mailinglist
 from createtemplate.api import ProjectTemplateAPI
+from tracremoteticket.web_ui import RemoteTicketModule
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
@@ -46,7 +48,6 @@ class GenerateTemplate(Component):
 
     def render_admin_panel(self, req, category, page, path_info):
         if page == 'create_template':
-
             data = dict()
 
             # we always need to load JS regardless of POST or GET
@@ -67,23 +68,36 @@ class GenerateTemplate(Component):
                                       ("group", "Groups and permissions"))
 
             if req.method == 'POST':
+
+                template_name = req.args.get('template_name')
+
                 # server side check that there is a template name
                 # there is jquery validation server side too
-                if not req.args['template_name']:
+                if not template_name:
                     add_notice(req, "Please enter a template name")
+                    return 'template_admin.html', data
+
+                # check the template name input so its alphanumeric seperated by hyphens
+                # we don't allow special characters etc
+                complied_regex = re.compile(RemoteTicketModule.projectname_re)
+                if not complied_regex.match(template_name):
+                    add_notice(req, "Please enter a different template name. "
+                                    "It should only include alphanumeric characters "
+                                    "and hypens. Special characters and spaces are "
+                                    "not allowed.")
                     return 'template_admin.html', data
 
                 # if there is already a template with the same name we prompt user for an alternative
                 # we can catch this on client side with JS too
-                template_name = req.args['template_name']
                 template_path = os.path.join(self.template_dir_path, template_name)
                 try:
                     os.mkdir(template_path)
                     self.log.debug("Created directory for project template at", template_path)
                 except OSError as exception:
                     if exception.errno == errno.EEXIST:
-                        data = {'failure':True,
-                                'template_name':template_name}
+                        data.update({'failure':True,
+                                     'template_name':template_name,
+                                    })
                         return 'template_admin.html', data
 
                 # so far so good
@@ -118,16 +132,20 @@ class GenerateTemplate(Component):
                 # create an info file to store the exact time of template
                 # creation, username of template creator etc.
                 self.create_template_info_file(req, template_path)
-                data['success'] = True
-                data['template_name'] = template_name
-                return 'template_admin.html', data
-            else:
-                return 'template_admin.html', data
+
+                data.update({'success':True,
+                             'template_name':template_name,
+                             })
+
+            return 'template_admin.html', data
 
     def export_wiki_pages(self, template_path):
-        """Get data for each wiki page that has not been deleted and place
-        that inside an XML new tree. When we've finished building the tree, 
-        create a new XML file to store the content."""
+        """Export wiki page data into a wiki.xml file.
+        
+        Get data for each wiki page that has not been deleted and place
+        that inside an new XML tree. When we've finished building the tree, 
+        create a new XML file called wiki.xml to store the content.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -139,8 +157,7 @@ class GenerateTemplate(Component):
             project_wiki = [WikiPage(self.env, wiki_page) for wiki_page in wiki_names]
 
             # create an XML tree using ElementTree
-            template_date = datetime.date.today().strftime("%Y-%m-%d")
-            root = ET.Element("wiki", project=self.env.project_name, date=template_date)
+            root = ET.Element("wiki", project=self.env.project_name, date=self.todays_date())
             for wiki in project_wiki:
                 page = ET.SubElement(root, "page", name=wiki.name, 
                                                    readonly=str(wiki.readonly),
@@ -156,9 +173,12 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_wiki_attachments(self, req, template_name):
-        """Exports files attached to wiki pages. To do this we need
+        """Export wiki attachent files into a new wiki attachment directory.
+
+        Exports files attached to wiki pages. To do this we need
         to export the wiki attachment data and put that into an XML file, 
-        plus we need to store the actual files in our template directory!"""
+        plus we need to store the actual files in our template directory!
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -173,9 +193,8 @@ class GenerateTemplate(Component):
 
         # write this information to XML tree if there are attachments to export
         if attachments:
-            template_date = datetime.date.today().strftime("%Y-%m-%d")
             self.log.info("Creating wiki attachment XML file for template archive")
-            root = ET.Element("attachments", project=self.env.project_name, date=template_date)
+            root = ET.Element("attachments", project=self.env.project_name, date=self.todays_date())
             for attachment in attachments:
                 ET.SubElement(root, "attachment", name=attachment.filename, 
                                                   parent_id=attachment.parent_id,
@@ -207,9 +226,12 @@ class GenerateTemplate(Component):
             return successful_exports
 
     def export_ticket_types(self, template_path):
-        """Creates a dictionary where each key is a ticket type and the value
+        """Export ticket types by saving type JSON data in ticket.xml file.
+        
+        Creates a dictionary where each key is a ticket type and the value
         is ticket type information. We then iterate over this to create a XML
-        file using ElementTree lib"""
+        file using ElementTree lib.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -223,10 +245,9 @@ class GenerateTemplate(Component):
             ticket_types_dict[ticket_type] = controller._serialize_ticket_type(ticket_type)
 
         # create the XML tree
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
         self.log.info("Creating ticket type XML file for template archive")
 
-        root = ET.Element("ticket_types", project=self.env.project_name, date=template_date)
+        root = ET.Element("ticket_types", project=self.env.project_name, date=self.todays_date())
         for type_name, type_info in ticket_types_dict.iteritems():
             ET.SubElement(root, "type_name", name=type_name).text = type_info
             successful_exports.append(type_name)
@@ -239,10 +260,15 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_workflows(self, req, template_path):
-        """Takes all the project specific workflows and copies them into
+        """Export project workflows into a new template workflow directory.
+        
+        Takes all the project specific workflows and copies them into
         into a new template directory. It doesn't matter if these have the same
         name as default workflows, as the project specific workflow has 
-        priority."""
+        priority.
+
+        We always expect workflows to be xml files.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -275,16 +301,18 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_priorites(self, template_path):
-        """Get the different ticket priority values from the enum table and
-        save the result into a XML file."""
+        """Export priority data into a new priority.xml file.
+
+        Get the different ticket priority values from the enum table and
+        save the result into a priority.xml file.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         # create the XML tree
         self.log.info("Creating priority XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("ticket_priority", project=self.env.project_name, date=template_date)
+        root = ET.Element("ticket_priority", project=self.env.project_name, date=self.todays_date())
         for priority in Priority.select(self.env):
             ET.SubElement(root, "priority_info", name=priority.name, value=str(priority.value))
             successful_exports.append(priority.name)
@@ -297,16 +325,18 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_versions(self, template_path):
-        """Get the different ticket version values from the version table using 
-        the select class method and save the result into a XML file."""
+        """Export version data into a new version.xml file.
+        
+        Get the different ticket version values from the version table using 
+        the select class method and save the result into a XML file.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         # create the XML tree
         self.log.info("Creating version XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("ticket_versions", project=self.env.project_name, date=template_date)
+        root = ET.Element("ticket_versions", project=self.env.project_name, date=self.todays_date())
         for version in model.Version.select(self.env):
             # not exporting time as this is unlikely to be relevant 
             # to any new project using this template
@@ -321,7 +351,9 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_components(self, template_path):
-        """Get the different ticket component values from the component table 
+        """Export component data into a new component.xml file.
+
+        Get the different ticket component values from the component table 
         using the select class method and save the result into a XML file."""
 
         # a list to return to the template with info about transaction
@@ -329,8 +361,7 @@ class GenerateTemplate(Component):
 
         # create the XML tree
         self.log.info("Creating component XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("ticket_components", project=self.env.project_name, date=template_date)
+        root = ET.Element("ticket_components", project=self.env.project_name, date=self.todays_date())
         for component in model.Component.select(self.env):
             # we don't save the owner as that user might not be a member
             # of the new project
@@ -346,9 +377,14 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_file_archive(self, req, new_repo_path):
-        """For now we only deal with Subversion repositories. We won't support
-        the export of GIT repos - but we will come back to solve this 
-        issue (probably via GIT clone) in a future release."""
+        """Export project file archive, saving it in the new template directory.
+
+        For now we only deal with Subversion repositories. We won't support
+        the export of Git repos - but we will come back to solve this 
+        issue (probably via GIT clone) in a future release.
+
+        We compress this file via gzip.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -368,17 +404,19 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_groups(self, template_path):
-        """Puts a list of all internal membership groups into an XML file. 
-        We ignore linked groups at the moment."""
+        """Export project group data, saving it into a new group.xml file.
+        
+        Puts a list of all internal membership groups into an XML file. 
+        We ignore linked groups at the moment.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         self.log.info("Creating membership group XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
         groups = [Group(self.env, sid) for sid in Group.groupsBy(self.env)]
         if groups:
-            root = ET.Element("membership_group", project=self.env.project_name, date=template_date)
+            root = ET.Element("membership_group", project=self.env.project_name, date=self.todays_date())
             for group in groups:
                 if not group.external_group:
                     ET.SubElement(root, "group_info", name=group.name, sid=group.sid, label=group.label).text = group.description
@@ -396,14 +434,17 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_permissions(self, template_path):
-        """Collects all permissions from the permissions table"""
+        """Export project permission data, saving into a new permission.xml file.
+        
+        Data is collected from the permissions table, a XML tree created and 
+        then written to a new file called permission.xml
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         self.log.info("Creating permissions XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("permissions", project=self.env.project_name, date=template_date)
+        root = ET.Element("permissions", project=self.env.project_name, date=self.todays_date())
         for perm in DefaultPermissionStore(self.env).get_all_permissions():
             ET.SubElement(root, "permission", name=perm[0], action=perm[1])
             successful_exports.append(perm[0])
@@ -418,14 +459,13 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_lists(self, template_path):
-        """Exports project mailing lists"""
+        """Exports project mailing lists into list.xml"""
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         self.log.info("Creating mailing list XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("lists", project=self.env.project_name, date=template_date)
+        root = ET.Element("lists", project=self.env.project_name, date=self.todays_date())
         for ml in Mailinglist.select(self.env):
             ET.SubElement(root, "list_info", name=ml.name,
                                              email=ml.emailaddress,
@@ -442,15 +482,18 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def export_milestones(self, template_path):
-        """Exports all project milestones into an XML file, respecting
-        the new sub-milestone feature."""
+        """Exports all project milestones into a new milestone.xml file.
+
+        This respects the new sub-milestone feature, so all parent and child 
+        milestones are included. We also store the start, due and completed 
+        dates, along with the milestone description.
+        """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
         self.env.log.info("Creating milestone XML file for template archive")
-        template_date = datetime.date.today().strftime("%Y-%m-%d")
-        root = ET.Element("milestones", project=self.env.project_name, date=template_date)
+        root = ET.Element("milestones", project=self.env.project_name, date=self.todays_date())
         all_milestones = model.Milestone.select(self.env, include_children=True)
         for milestone in all_milestones:
             ms = ET.SubElement(root, "milestone_info", name=milestone.name)
@@ -475,8 +518,12 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def create_template_info_file(self, req, template_path):
-        """We can store some extra metadata about the template creation - such 
-        as the author and date."""
+        """Creates a new text file which stores metadata about the template. 
+
+        This metadta includes information including the author who invoked the
+        create template event, the date the template was created and the 
+        description given by the author of the template. 
+        """
 
         filename = os.path.join(template_path, "info.txt")
         try:
@@ -487,6 +534,11 @@ class GenerateTemplate(Component):
             f.write(text)
         except IOError:
             self.log.info("Unable to create new file info folder at %s", filename)
+
+    def todays_date(self):
+        """Returns todays date in YYYY-MM-DD format"""
+
+        return datetime.date.today().strftime("%Y-%m-%d")
 
     # ITemplateProvider methods
 
