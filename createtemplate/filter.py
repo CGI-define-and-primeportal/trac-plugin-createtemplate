@@ -28,8 +28,8 @@ class Filter(Component):
         and don't use a select list by default as this will cause validation
         issues."""
 
-        if self.env.is_component_enabled('dashboardplugin') and \
-            req.args.get('type') == 'projectrequest':
+        if (filename == 'ticket.html' and req.args.get('type') == 'projectrequest' 
+            and self.env.is_component_enabled('define.dashboard.DashboardDisplayModule')):
 
             # get a list of available templates
             templates = ProjectTemplateAPI(self.env).get_all_templates()
