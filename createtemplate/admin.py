@@ -81,7 +81,6 @@ class GenerateTemplate(Component):
                 # we don't allow special characters etc
                 complied_regex = re.compile(RemoteTicketSystem.PROJECTID_RE)
                 if not complied_regex.match(template_name):
-                    import pdb; pdb.set_trace()
                     add_notice(req, "Please enter a different template name. "
                                     "It should only include alphanumeric characters "
                                     "and hypens. Special characters and spaces are "
