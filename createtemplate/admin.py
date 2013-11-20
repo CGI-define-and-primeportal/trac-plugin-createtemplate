@@ -391,15 +391,17 @@ class GenerateTemplate(Component):
 
         # os.path.basename(self.env.path) is a workaround to get the project
         # name without any spaces etc
-        old_repo_path = os.path.join("vc-repos", "svn", os.path.basename(self.env.path))
+        old_repo_path = os.path.join(self.template_dir_path, "vc-repos", "svn", os.path.basename(self.env.path))
 
-        if os.path.exists(old_repo_path):
+        try:
             # Dump the file archive at the latest version (-rHEAD)
             subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
             self.log.info("Dumped the file archive at %s into the project template directory", old_repo_path)
             successful_exports = [old_repo_path.split("/")[-1]]
-        else:
-            add_notice(req, "Unable to export the file archive.")
+        except OSError as exception:
+            self.log.info("No subversion repository at the path %s. Unable to export file archive.", old_repo_path)
+            self.log.debug(exception)
+            add_notice(req, "No Subversion repository found. Unable to export the file archive.")
 
         return successful_exports
 
