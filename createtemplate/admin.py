@@ -27,7 +27,7 @@ from trac.config import PathOption
 from simplifiedpermissionsadminplugin.model import Group
 from mailinglistplugin.model import Mailinglist
 from createtemplate.api import ProjectTemplateAPI
-from tracremoteticket.web_ui import RemoteTicketModule
+from tracremoteticket.web_ui import RemoteTicketSystem 
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
@@ -79,7 +79,7 @@ class GenerateTemplate(Component):
 
                 # check the template name input so its alphanumeric seperated by hyphens
                 # we don't allow special characters etc
-                complied_regex = re.compile(RemoteTicketModule.projectname_re)
+                complied_regex = re.compile(RemoteTicketSystem.PROJECTID_RE)
                 if not complied_regex.match(template_name):
                     add_notice(req, "Please enter a different template name. "
                                     "It should only include alphanumeric characters "
