@@ -37,7 +37,7 @@ class Filter(Component):
             templates.insert(0, 'None')
 
             # generate the select list markup
-            select = tag.select()
+            select = tag.select(name='field_template')
             for template in templates:
                 if template == 'None':
                     select.append(tag.option(template, value=template, selected='selected'))
