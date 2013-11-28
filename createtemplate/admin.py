@@ -19,7 +19,7 @@ from trac.wiki.model import WikiPage
 from trac.wiki.api import WikiSystem
 from trac.ticket import model
 from logicaordertracker.controller import LogicaOrderController
-from trac.perm import DefaultPermissionStore
+from trac.perm import DefaultPermissionStore, IPermissionRequestor
 from trac.ticket import Priority
 from trac.attachment import Attachment
 from trac.config import PathOption
@@ -37,12 +37,17 @@ class GenerateTemplate(Component):
     template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/templates',
                     doc="The default path for the project template directory")
 
-    implements(IAdminPanelProvider, ITemplateProvider)
+    implements(IPermissionRequestor, IAdminPanelProvider, ITemplateProvider)
+
+    # IPermissionRequestor methods
+
+    def get_permission_actions(self):
+        return ["PROJECT_TEMPLATE_CREATE"]
 
     # IAdminPanelProvider
 
     def get_admin_panels(self, req):
-        if 'LOGIN_ADMIN' in req.perm:
+        if 'PROJECT_TEMPLATE_CREATE' in req.perm:
             yield ('general', ('General'),
            'create_template', ('Create Template'))
 
