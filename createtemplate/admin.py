@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import errno
 import re
+from operator import itemgetter
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
 try:
@@ -48,20 +49,37 @@ class GenerateTemplate(Component):
 
     def get_admin_panels(self, req):
         if 'PROJECT_TEMPLATE_CREATE' in req.perm:
-            yield ('general', ('General'),
+            yield ('templates', ('Project Templates'),
            'create_template', ('Create Template'))
 
     def render_admin_panel(self, req, category, page, path_info):
         if page == 'create_template':
-            data = dict()
 
             # we always need to load JS regardless of POST or GET
             add_script(req, 'createtemplate/js/create_template_admin.js')
+
             # we also need to let JS know what templates currently exist
             # so we can validate client side
-            used_names = ProjectTemplateAPI(self.env).get_all_templates()
-            add_script_data(req, { 'usedNames':used_names })
-            
+            template_api = ProjectTemplateAPI(self.env)
+            all_templates = template_api.get_all_templates()
+            add_script_data(req, { 'usedNames':all_templates })
+
+            # find templates for this project and place them into data dict
+            # as a list of dicts so we can display on page
+            templates = []
+            for template in all_templates:
+                template_data = template_api.get_template_information(template)
+                if template_data.get('project') == self.env.project_name:
+                    templates.append(template_data)
+
+            # sort template order based on created date
+            templates = sorted(templates, key=itemgetter('created'))
+
+            data = {
+                    'name': self.env.project_name, 
+                    'templates': templates
+                    }
+
             # Send all available options to the template
             data['tpl_components'] = (("wiki", "Wiki pages and attachments"),
                                       ("ticket", "Ticket types, workflows, "
@@ -136,11 +154,15 @@ class GenerateTemplate(Component):
 
                 # create an info file to store the exact time of template
                 # creation, username of template creator etc.
-                self.create_template_info_file(req, template_path)
+                self.create_template_info_file(req, template_name, template_path)
 
                 data.update({'success':True,
                              'template_name':template_name,
                              })
+
+                # we also need to add the new template to the list 
+                # of templates we have for this project
+                templates.append(template_api.get_template_information(template_name))
 
             return 'template_admin.html', data
 
@@ -524,7 +546,7 @@ class GenerateTemplate(Component):
 
         return successful_exports
 
-    def create_template_info_file(self, req, template_path):
+    def create_template_info_file(self, req, template_name, template_path):
         """Creates a new text file which stores metadata about the template. 
 
         This metadta includes information including the author who invoked the
@@ -536,8 +558,8 @@ class GenerateTemplate(Component):
         try:
             f = file(filename, "w")
             time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            text = "created - %s.\nauthor - %s.\ndescription - %s" \
-                    % (time, req.authname, req.args['description'])
+            text = "name - %s\nproject - %s\ncreated - %s\nauthor - %s\ndescription - %s" \
+                    % (template_name, self.env.project_name, time, req.authname, req.args['description'])
             f.write(text)
         except IOError:
             self.log.info("Unable to create new file info folder at %s", filename)

@@ -67,7 +67,7 @@ class ProjectTemplateAPI(Component):
                 for line in infile:
                     # file should have no empty lines - see create_template_info_file()
                     split_line = line.split("-", 1)
-                    template_info[split_line[0]] = split_line[1].rstrip("\n").lstrip()
+                    template_info[split_line[0].rstrip()] = split_line[1].rstrip("\n").lstrip()
 
             # get a list of all the files and folders inside the template directory
             # [1] is directories, [2] is files

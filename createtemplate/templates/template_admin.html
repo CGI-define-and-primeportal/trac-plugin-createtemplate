@@ -11,7 +11,7 @@
   </head>
   <body>
     <div id="content" class="create-template">
-      <h1>Create Project Template</h1>
+      <h1>Project Templates</h1>
       <div id="about-template-create">
         <p>
           Create a template of your project as it currently stands.
@@ -64,7 +64,7 @@
       </div>
       <form id="create-template-form" class="form-block box-primary"
             action="" method="post">
-
+        <h3>Create New Template</h3>
         <label for="template_name">
           Template Name
         </label>
@@ -90,6 +90,28 @@
           <i class="icon-hdd"></i> Create Template
         </button>
       </form>
+      <table py:if="templates" class="rounded border-header full-width striped">
+        <tr>
+          <th>Name</th>
+          <th>Created</th>
+          <th>Author</th>
+          <th>Description</th>
+          <th>Components</th>
+        </tr>
+        <py:for each="template in templates">
+          <tr>
+            <td>${template['name']}</td>
+            <td>${template['created']}</td>
+            <td>${template['author']}</td>
+            <td>${template['description']}</td>
+            <td>
+              <py:for each="i, component in enumerate(template['components'])">
+                ${component.capitalize()}<py:if test="i != len(template['components']) -1">, </py:if>
+              </py:for>
+            </td>
+          </tr>
+        </py:for>
+      </table>
       <div class="box-info">
         <i class="icon-info-sign"></i>
         To remove a previously created template, please email servicedesk@logica.com
