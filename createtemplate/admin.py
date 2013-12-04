@@ -536,7 +536,7 @@ class GenerateTemplate(Component):
         try:
             f = file(filename, "w")
             time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            text = "Created - %s.\nAuthor - %s.\nDescription - %s" \
+            text = "created - %s.\nauthor - %s.\ndescription - %s" \
                     % (time, req.authname, req.args['description'])
             f.write(text)
         except IOError:

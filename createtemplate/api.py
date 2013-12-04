@@ -76,7 +76,7 @@ class ProjectTemplateAPI(Component):
 
             # add component info into the dict
             # we are only interested in xml files and directories
-            template_info['Components'] = [template_file.rstrip(".xml") for template_file in available_components 
+            template_info['components'] = [template_file.rstrip(".xml") for template_file in available_components 
                                                          if template_file.lower().endswith(".xml") 
                                                          or os.path.isdir(os.path.join(template_dir, template_file))]
 
