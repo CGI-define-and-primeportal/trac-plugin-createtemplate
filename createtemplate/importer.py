@@ -198,7 +198,8 @@ class ImportTemplate(Component):
         try:
             tree = ET.ElementTree(file=path)
             for group in tree.getroot():
-                SimplifiedPermissions(self.env).add_group(group.attrib['name'], description=group.text)
+                # have to use _new_group() not add_group() otherwise we can't specify the sid
+                SimplifiedPermissions(self.env)._new_group(group.attrib['sid'], group.attrib['name'], description=group.text)
         except IOError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to group.xml at %s does not exist. Unable to "
