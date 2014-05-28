@@ -415,10 +415,7 @@ class GenerateTemplate(Component):
 
         # a list to return to the template with info about transaction
         successful_exports = list()
-
-        # os.path.basename(self.env.path) is a workaround to get the project
-        # name without any spaces etc
-        old_repo_path = os.path.join(self.template_dir_path, "vc-repos", "svn", os.path.basename(self.env.path))
+        old_repo_path = self.env.get_repository().repos.path
 
         try:
             # Dump the file archive at the latest version (-rHEAD)
