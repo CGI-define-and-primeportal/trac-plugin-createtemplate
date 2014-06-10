@@ -92,11 +92,11 @@ class ImportTemplate(Component):
                 filepath = os.path.join('templates', template_name, 'attachment.xml')
                 tree = ET.ElementTree(file=filepath)
                 attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
-                                    att.attrib['size'], att.text)
+                                    att.attrib['version'], att.attrib['size'], att.text)
                                     for att in tree.getroot()]
 
-                cursor.executemany("""INSERT INTO attachment(type, id, filename, size, description)
-                                      VALUES (%s, %s, %s, %s, %s)""", attachment_info)
+                cursor.executemany("""INSERT INTO attachment(type, id, filename, version, size, description)
+                                      VALUES (%s, %s, %s, %s, %s, %s)""", attachment_info)
 
     def template_populate(self, template_name, project_name):
         """Clears default data and inserts template specific data from xml files.
