@@ -24,8 +24,8 @@ from mailinglistplugin.model import Mailinglist
 class ImportTemplate(Component):
     """Creates data and components inside #define based on XML template files"""
 
-    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/templates',
-                    doc="The default path for the project template directory")
+    template_dir_path = PathOption('project_templates', 'template_dir', 
+                        doc="The default path for the project template directory")
 
     def import_wiki_pages(self, template_name):
         """Creates wiki pages from wiki.xml template file.

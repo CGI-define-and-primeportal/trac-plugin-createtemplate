@@ -35,7 +35,7 @@ from tracremoteticket.web_ui import RemoteTicketSystem
 class GenerateTemplate(Component):
     """Generates files which can be used by other projects as a base template"""
 
-    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/templates',
+    template_dir_path = PathOption('project_templates', 'template_dir',
                     doc="The default path for the project template directory")
 
     implements(IPermissionRequestor, IAdminPanelProvider, ITemplateProvider)

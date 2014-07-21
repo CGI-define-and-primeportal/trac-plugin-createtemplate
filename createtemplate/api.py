@@ -34,7 +34,7 @@ class ProjectTemplatesRPC(Component):
 class ProjectTemplateAPI(Component):
     """Useful methods to return information about project templates"""
 
-    template_dir_path = PathOption('project_templates', 'template_dir', '/var/define/template',
+    template_dir_path = PathOption('project_templates', 'template_dir', 
                     doc="The default path for the project template directory")
 
     def get_all_templates(self):
@@ -42,11 +42,8 @@ class ProjectTemplateAPI(Component):
         production servers or development-environment/templates under
         run-in-place.sh"""
 
-        # get the absoloute path of the templates directory from ini
-        template_dir = self.env.config.get('project_templates', 'template_dir')
-
         # list all directories in the template dir
-        return os.walk(template_dir).next()[1]
+        return os.walk(self.template_dir_path).next()[1]
 
     def get_template_information(self, template_name):
         """Returns a dictionary containing information about the specified 
