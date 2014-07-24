@@ -377,7 +377,7 @@ class ImportTemplate(Component):
         project's workflow directory.
         """
 
-        template_workflow_path = os.path.join('templates', template_name, 'workflows')
+        template_workflow_path = os.path.join(template_name, 'workflows')
         project_workflow_path = os.path.join(self.env.path, 'workflows')
 
         # the directory we copy to can't exist if using shutil.copytree
