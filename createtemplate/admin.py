@@ -105,10 +105,10 @@ class GenerateTemplate(Component):
                 # we don't allow special characters etc
                 complied_regex = re.compile(RemoteTicketSystem.PROJECTID_RE)
                 if not complied_regex.match(template_name):
-                    add_notice(req, "Please enter a different template name. "
-                                    "It should only include alphanumeric characters "
-                                    "and hypens. Special characters and spaces are "
-                                    "not allowed.")
+                    add_warning(req, "Please enter a different template name. "
+                                "It should only include alphanumeric characters "
+                                "and hypens. Special characters and spaces are "
+                                "not allowed.")
                     return 'template_admin.html', data
 
                 # if there is already a template with the same name we prompt user for an alternative
