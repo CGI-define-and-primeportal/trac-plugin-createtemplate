@@ -4,6 +4,7 @@ import datetime
 import shutil
 import subprocess
 import errno
+import gzip
 import re
 from operator import itemgetter
 # cElementTree is C implementation and faster
@@ -419,8 +420,29 @@ class GenerateTemplate(Component):
 
         try:
             # Dump the file archive at the latest version (-rHEAD)
-            subprocess.call("svnadmin dump -rHEAD %s | gzip > %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
-            self.log.info("Dumped the file archive at %s into the project template directory", old_repo_path)
+            process = subprocess.Popen(['svnadmin', 'dump', '--quiet', '-rHEAD', old_repo_path],
+                                       executable='/usr/bin/svnadmin',
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
+            output = gzip.GzipFile(new_repo_path, 'w')
+            bs = 1024*1000
+            while True:
+                data = process.stdout.read(bs)
+                if data:
+                    output.write(data)
+                else:
+                    # any remaining stderr will be read in a moment by communicate()
+                    break
+                stderrdata = process.stderr.read()
+                if stderrdata:
+                    self.log.warning("stderr from svnadmin: %s", stderrdata)                    
+            output.close()
+            stdoutdata, stderrdata = process.communicate()
+            if stderrdata:
+                self.log.warning("stderr from svnadmin: %s", stderrdata)
+            self.log.info("Dumped the file archive (return code %s) at %s into the project template directory", 
+                          process.returncode, 
+                          old_repo_path)
             successful_exports = [old_repo_path.split("/")[-1]]
         except OSError as exception:
             self.log.info("No subversion repository at the path %s. Unable to export file archive.", old_repo_path)
