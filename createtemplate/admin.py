@@ -123,6 +123,7 @@ class GenerateTemplate(Component):
                                      'template_name':template_name,
                                     })
                         return 'template_admin.html', data
+                    raise
 
                 # so far so good
                 # we now call functions which create the XML template files
