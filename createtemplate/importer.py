@@ -185,7 +185,7 @@ class ImportTemplate(Component):
         group data taken from the group.xml file."""
 
         @self.env.with_transaction()
-        def clear_perms(db):
+        def clear_groups(db):
             """Clears the whole groups table of default data. You can't pass
             a table name as an argument for parameter substitution, so it
             has to be hard coded."""
@@ -253,7 +253,7 @@ class ImportTemplate(Component):
         """
 
         @self.env.with_transaction()
-        def clear_perms(db):
+        def clear_versions(db):
             """Clears the whole version table of default data. You can't pass
             a table name as an argument for parameter substitution, so it
             has to be hard coded."""
@@ -283,7 +283,7 @@ class ImportTemplate(Component):
         """
 
         @self.env.with_transaction()
-        def clear_perms(db):
+        def clear_components(db):
             """Clears the whole component table of default data. You can't pass
             a table name as an argument for parameter substitution, so it
             has to be hard coded."""
