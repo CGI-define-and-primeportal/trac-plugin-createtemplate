@@ -42,8 +42,12 @@ class ProjectTemplateAPI(Component):
         production servers or development-environment/templates under
         run-in-place.sh"""
 
-        # list all directories in the template dir
-        return os.walk(self.template_dir_path).next()[1]
+        try:
+            # list all directories in the template dir
+            return os.walk(self.template_dir_path).next()[1]
+        except TypeError:
+            # catch a TypeError incase the template_dir_path defaults to None
+            return []
 
     def get_template_information(self, template_name):
         """Returns a dictionary containing information about the specified 
