@@ -395,9 +395,9 @@ class ImportTemplate(Component):
                               "not exist. Unable to import workflows.", template_workflow_path)
 
     def import_mailinglist(self, template_path):
-        """Creates project mailing lists from list.xml template file."""
+        """Creates project mailing lists from mailinglist.xml template file."""
 
-        path = os.path.join(template_path, 'list.xml')
+        path = os.path.join(template_path, 'mailinglist.xml')
         try:
             tree = ET.ElementTree(file=path)
             for ml in tree.getroot():
@@ -410,7 +410,7 @@ class ImportTemplate(Component):
                 mailinglist.insert()
         except IOError as exception:
             if exception.errno == errno.ENOENT:
-                self.log.info("Path to list.xml at %s does not exist. "
+                self.log.info("Path to mailinglist.xml at %s does not exist. "
                               "Unable to import mailing lists from template.", path)
 
         # TODO Get Subscriber informaiton 

@@ -150,7 +150,7 @@ class GenerateTemplate(Component):
                         # which don't exist in the project
                         data['perms'] = self.export_permissions(template_path)
                     if 'list' in options:
-                        data['lists'] = self.export_lists(template_path)
+                        data['lists'] = self.export_mailinglists(template_path)
                     if 'milestone' in options:
                         data['milestones'] = self.export_milestones(template_path)
 
@@ -507,8 +507,8 @@ class GenerateTemplate(Component):
 
         return successful_exports
 
-    def export_lists(self, template_path):
-        """Exports project mailing lists into list.xml"""
+    def export_mailinglists(self, template_path):
+        """Exports project mailing lists into mailinglist.xml"""
 
         # a list to return to the template with info about transaction
         successful_exports = list()
@@ -524,7 +524,7 @@ class GenerateTemplate(Component):
             successful_exports.append(ml.name)
 
         # save the xml file
-        filename = os.path.join(template_path, 'list.xml')
+        filename = os.path.join(template_path, 'mailinglist.xml')
         ET.ElementTree(root).write(filename)
         self.log.info("File %s has been created at %s" % (filename, template_path))
 
