@@ -112,35 +112,36 @@ class ImportTemplate(Component):
         and version tables - then we move onto the enum table.
         """
 
+
+        importer_functions = {'permission.xml': self.import_perms,
+                             'group.xml': self.import_groups,
+                             'milestone.xml': self.import_milestones,
+                             'component.xml': self.import_components,
+        }
+
+        enum_values = {'priority.xml': 'priority',
+                       'ticket.xml': 'ticket_type',
+        }
+
         # for vales stored in the enum table we only want to clear certain rows
         enum_to_clear = list()
 
         # go through template dir to see which tables and rows we want to modify
-        dir_path = os.path.join(template_path)
         try:
-            for filename in os.listdir(dir_path):
-                if filename.lower().endswith("permission.xml"):
-                    self.import_perms(template_path)
-                elif filename.lower().endswith("group.xml"):
-                    self.import_groups(template_path)
-                elif filename.lower().endswith("milestone.xml"):
-                    self.import_milestones(template_path)
-                # we don't import version right now as this
-                # raises a bug when we import ticket types
-                #elif filename.lower().endswith("version.xml"):
-                    #self.import_versions(template_path)
-                elif filename.lower().endswith("component.xml"):
-                    self.import_components(template_path)
-                elif filename.lower().endswith("priority.xml"):
-                    enum_to_clear.append("priority")
-                elif filename.lower().endswith("ticket.xml"):
-                    enum_to_clear.append("ticket_type")
-            if enum_to_clear:
-                self.import_enum(template_path, enum_to_clear)
+            for filename in os.listdir(template_path):
+                if filename in importer_functions:
+                    importer_functions[filename]()
+
+                elif filename in enum_values:
+                    enum_to_clear.append(enum_values[filename])
+
         except OSError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Unable to list files at %s."
-                              "Import of template data failed.", dir_path)
+                              "Import of template data failed.", template_path)
+
+        if enum_to_clear:
+            self.import_enum(template_path, enum_to_clear)
 
     def import_perms(self, template_path):
         """Creates permissions from data stored in permission.xml.
