@@ -130,7 +130,7 @@ class ImportTemplate(Component):
         try:
             for filename in os.listdir(template_path):
                 if filename in importer_functions:
-                    importer_functions[filename]()
+                    importer_functions[filename](template_path)
 
                 elif filename in enum_values:
                     enum_to_clear.append(enum_values[filename])
