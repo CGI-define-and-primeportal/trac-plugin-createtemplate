@@ -1,5 +1,7 @@
+import json
 import os
 import itertools
+
 from trac.core import *
 from tracrpc.api import IXMLRPCHandler
 from trac.config import PathOption
@@ -52,7 +54,7 @@ class ProjectTemplateAPI(Component):
     def get_template_information(self, template_name):
         """Returns a dictionary containing information about the specified 
         project template. This includes the name, description, date and a list
-        of all the components exported.
+        of all the components exported - loaded from the JSON in info.json
 
         If there is not template directory with that name in the 
         template folder we return a string informing the user. There is 
@@ -61,14 +63,18 @@ class ProjectTemplateAPI(Component):
 
         # create the path to the template and check it exists
         template_dir = os.path.join(self.template_dir_path, template_name)
+        template_info = {}
+
         if os.path.isdir(template_dir):
-            # create a dict to hold information and populate it by parsing the info file
-            template_info = dict()
-            with open(os.path.join(template_dir, 'info.txt')) as infile:
-                for line in infile:
-                    # file should have no empty lines - see create_template_info_file()
-                    split_line = line.split("-", 1)
-                    template_info[split_line[0].rstrip()] = split_line[1].rstrip("\n").lstrip()
+            try:
+                with open(os.path.join(template_dir, 'info.json')) as info_file:
+                    try:
+                        template_info = json.load(info_file)
+                    except ValueError:
+                        # to catch invalid json syntax
+                        self.log.debug("Unable to load JSON from info.json")
+            except IOError:
+                self.log.debug("Unable to find info.json file in %s", template_dir)
 
             # get a list of all the files and folders inside the template directory
             # [1] is directories, [2] is files

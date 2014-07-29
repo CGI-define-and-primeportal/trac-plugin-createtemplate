@@ -6,6 +6,7 @@ import subprocess
 import errno
 import gzip
 import re
+import json
 from operator import itemgetter
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
@@ -567,20 +568,25 @@ class GenerateTemplate(Component):
         return successful_exports
 
     def create_template_info_file(self, req, template_name, template_path):
-        """Creates a new text file which stores metadata about the template. 
+        """Creates a new json file which stores metadata about the template. 
 
         This metadta includes information including the author who invoked the
         create template event, the date the template was created and the 
-        description given by the author of the template. 
+        description given by the author of the template.
         """
 
-        filename = os.path.join(template_path, "info.txt")
+        filename = os.path.join(template_path, "info.json")
+
+        text = {
+            'name': template_name,
+            'project': self.env.project_name,
+            'created': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'author': req.authname,
+            'description': req.args['description']
+        }
         try:
             f = file(filename, "w")
-            time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            text = "name - %s\nproject - %s\ncreated - %s\nauthor - %s\ndescription - %s" \
-                    % (template_name, self.env.project_name, time, req.authname, req.args['description'])
-            f.write(text)
+            f.write(json.dumps(text))
         except IOError:
             self.log.info("Unable to create new file info folder at %s", filename)
 
