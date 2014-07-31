@@ -56,7 +56,7 @@ class ProjectTemplateAPI(Component):
         project template. This includes the name, description, date and a list
         of all the components exported - loaded from the JSON in info.json
 
-        If there is not template directory with that name in the 
+        If there is no template directory with that name in the 
         template folder we return a string informing the user. There is 
         no point in returning a warning or notice as this method is intended
         for API style usage."""
@@ -67,14 +67,10 @@ class ProjectTemplateAPI(Component):
 
         if os.path.isdir(template_dir):
             try:
-                with open(os.path.join(template_dir, 'info.json')) as info_file:
-                    try:
-                        template_info = json.load(info_file)
-                    except ValueError:
-                        # to catch invalid json syntax
-                        self.log.debug("Unable to load JSON from info.json")
-            except IOError:
-                self.log.debug("Unable to find info.json file in %s", template_dir)
+                template_info = json.loads(open(os.path.join(template_dir, 'info.json')).read())
+            except (ValueError, IOError), e:
+                self.log.exception("Unable to read info.json in %s due to %s", template_dir, e)
+                raise ResourceNotFound("Template %s is not valid" % template_name)
 
             # get a list of all the files and folders inside the template directory
             # [1] is directories, [2] is files
@@ -90,6 +86,6 @@ class ProjectTemplateAPI(Component):
             return template_info
 
         else:
-            # no directrory at the path specified
+            # no directory at the path specified
             raise ResourceNotFound('There is no such template with the name %s'
                                    % template_name)
