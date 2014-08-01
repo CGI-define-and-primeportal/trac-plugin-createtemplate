@@ -33,7 +33,8 @@ class Filter(Component):
         except KeyError:
             ticket_type = None
 
-        if (filename == 'ticket.html' and ticket_type
+        if (filename == 'ticket.html' 
+            and ticket_type == 'projectrequest'
             and self.env.is_component_enabled('define.dashboard.DashboardDisplayModule')):
 
             # get a list of available templates
