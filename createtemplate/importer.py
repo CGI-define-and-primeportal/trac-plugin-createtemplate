@@ -345,8 +345,10 @@ class ImportTemplate(Component):
 
         # now import ticket types and associated data from template
         # we use LogicaOrderController rather than a straight SQL insert
-        self.import_ticket_types(template_path) 
+        # we must import workflows first else importing types 
+        # which rely on these workflows fails
         self.import_workflows(template_path)
+        self.import_ticket_types(template_path) 
 
     def import_ticket_types(self, template_path):
         """Imports ticket types from ticket.xml template file.
