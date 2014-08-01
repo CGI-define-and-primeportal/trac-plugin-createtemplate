@@ -28,7 +28,12 @@ class Filter(Component):
         and don't use a select list by default as this will cause validation
         issues."""
 
-        if (filename == 'ticket.html' and data['ticket']['type'] == 'projectrequest'
+        try:
+            ticket_type = data['ticket']['type']
+        except KeyError:
+            ticket_type = None
+
+        if (filename == 'ticket.html' and ticket_type
             and self.env.is_component_enabled('define.dashboard.DashboardDisplayModule')):
 
             # get a list of available templates
