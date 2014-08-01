@@ -28,12 +28,8 @@ class Filter(Component):
         and don't use a select list by default as this will cause validation
         issues."""
 
-        default_type = self.env.config.get("ticket", "default_type", "")
-
-        if (filename == 'ticket.html' 
-            and self.env.is_component_enabled('define.dashboard.DashboardDisplayModule') 
-            and (req.args.get('type') == 'projectrequest'
-            or req.path_info == '/newticket' and default_type == 'projectrequest')):
+        if (filename == 'ticket.html' and data['ticket']['type'] == 'projectrequest'
+            and self.env.is_component_enabled('define.dashboard.DashboardDisplayModule')):
 
             # get a list of available templates
             templates = ProjectTemplateAPI(self.env).get_all_templates()
