@@ -40,11 +40,15 @@ class ImportTemplate(Component):
         try:
             tree = ET.ElementTree(file=full_path)
             for page in tree.getroot():
-                wikipage = WikiPage(self.env, page.attrib['name'])
-                wikipage.readonly = int(page.attrib['readonly']) # we store as a string in xml
-                wikipage.text = page.text
-                wikipage.save(None, None, None)
-                self.log.info("Wiki page %s created" % page.attrib['name'])
+                if page.text:
+                    wikipage = WikiPage(self.env, page.attrib['name'])
+                    wikipage.readonly = int(page.attrib['readonly']) # we store as a string in xml
+                    wikipage.text = page.text
+                    wikipage.save(None, None, None)
+                    self.log.info("Wiki page %s created", page.attrib['name'])
+                else:
+                    self.log.debug("Cannot create wiki pages with no text. "
+                                   "Unable to import %s", wikipage)
         except IOError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to wiki.xml file %s does not exist. Unable "

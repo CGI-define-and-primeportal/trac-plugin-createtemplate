@@ -189,11 +189,13 @@ class GenerateTemplate(Component):
             # create an XML tree using ElementTree
             root = ET.Element("wiki", project=self.env.project_name, date=self.todays_date())
             for wiki in project_wiki:
-                page = ET.SubElement(root, "page", name=wiki.name, 
+                # only export wiki pages with text
+                if wiki.text:
+                    page = ET.SubElement(root, "page", name=wiki.name, 
                                                    readonly=str(wiki.readonly),
                                                    author=str(wiki.author)
-                                    ).text = wiki.text
-                successful_exports.append(wiki.name)
+                                        ).text = wiki.text
+                    successful_exports.append(wiki.name)
 
             # create the actual xml file
             filename = os.path.join(template_path, 'wiki.xml')
