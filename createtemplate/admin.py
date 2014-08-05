@@ -191,9 +191,11 @@ class GenerateTemplate(Component):
             for wiki in project_wiki:
                 # only export wiki pages with text
                 if wiki.text:
+                    # we can't serialize None
+                    author = wiki.author if wiki.author else ''
                     page = ET.SubElement(root, "page", name=wiki.name, 
                                                    readonly=str(wiki.readonly),
-                                                   author=str(wiki.author)
+                                                   author=author
                                         ).text = wiki.text
                     successful_exports.append(wiki.name)
 
