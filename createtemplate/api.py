@@ -70,7 +70,6 @@ class ProjectTemplateAPI(Component):
                 template_info = json.loads(open(os.path.join(template_dir, 'info.json')).read())
             except (ValueError, IOError), e:
                 self.log.exception("Unable to read info.json in %s due to %s", template_dir, e)
-                raise ResourceNotFound("Template %s is not valid" % template_name)
 
             # get a list of all the files and folders inside the template directory
             # [1] is directories, [2] is files
