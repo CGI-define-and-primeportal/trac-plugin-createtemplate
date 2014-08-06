@@ -191,16 +191,18 @@ class GenerateTemplate(Component):
             for wiki in project_wiki:
                 # only export wiki pages with text
                 if wiki.text:
+
+                    # standard attributes
+                    attribs = {
+                        'name': wiki.name,
+                        'readonly': str(wiki.readonly),
+                    }
+
                     # we can't serialize None
                     if wiki.author:
-                        page = ET.SubElement(root, "page", name=wiki.name, 
-                                                       readonly=str(wiki.readonly),
-                                                       author=wiki.author
-                                            ).text = wiki.text
-                    else:
-                        page = ET.SubElement(root, "page", name=wiki.name, 
-                                                       readonly=str(wiki.readonly)
-                                            ).text = wiki.text
+                        attribs['author'] = wiki.author
+
+                    page = ET.SubElement(root, "page", attribs).text = wiki.text
                     successful_exports.append(wiki.name)
 
             # create the actual xml file
