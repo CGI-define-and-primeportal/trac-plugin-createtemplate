@@ -435,8 +435,8 @@ class ImportTemplate(Component):
         template_name = os.path.basename(os.path.normpath(template_path))
         old_repo_path = os.path.join(template_path,  template_name + '.dump.gz')
 
-        # TODO: As part of #4755, use RepositoryManager().repository_dir to get 
-        # repository_dir.
+        # TODO: As part of #4755, use RepositoryManager API to find default 
+        # repository path
         default_repo_alias = self.env.config.get('repositories', '.alias')
         new_repo_path = self.env.config.get('repositories', 
                                             default_repo_alias + '.dir')
