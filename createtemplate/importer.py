@@ -163,7 +163,7 @@ class ImportTemplate(Component):
         path = os.path.join(template_path, "permission.xml")
         try:
             tree = ET.ElementTree(file=path)
-            perm_data = [(perm.attrib['name'], perm.attrib['action']) for perm in tree.getroot()]
+            perm_data = [(perm.attrib['name'], perm.attrib['action']) for perm in tree.getroot() if perm.attrib['name']]
         except IOError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to permission.xml at %s does not exist. "
