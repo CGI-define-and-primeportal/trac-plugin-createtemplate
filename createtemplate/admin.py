@@ -28,6 +28,7 @@ from trac.attachment import Attachment
 from trac.config import PathOption
 
 from simplifiedpermissionsadminplugin.model import Group
+from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
 from mailinglistplugin.model import Mailinglist
 from createtemplate.api import ProjectTemplateAPI
 from tracremoteticket.web_ui import RemoteTicketSystem 
@@ -497,7 +498,10 @@ class GenerateTemplate(Component):
         """Export project permission data, saving into a new permission.xml file.
         
         Data is collected from the permissions table, a XML tree created and 
-        then written to a new file called permission.xml
+        then written to a new file called permission.xml.
+
+        User based group memberships are not exported - this aims to stop
+        existing project users being granted permissions in others project.
         """
 
         # a list to return to the template with info about transaction
@@ -505,7 +509,12 @@ class GenerateTemplate(Component):
 
         self.log.info("Creating permissions XML file for template archive")
         root = ET.Element("permissions", project=self.env.project_name, date=self.todays_date())
-        for perm in DefaultPermissionStore(self.env).get_all_permissions():
+
+        all_perms = DefaultPermissionStore(self.env).get_all_permissions()
+        project_members = SimplifiedPermissions(self.env).all_users()
+        export_perm = (p for p in all_perms if p[0] not in project_members)
+
+        for perm in export_perm:
             ET.SubElement(root, "permission", name=perm[0], action=perm[1])
             successful_exports.append(perm[0])
 
