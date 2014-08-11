@@ -496,18 +496,19 @@ class GenerateTemplate(Component):
                           date=datetime.date.today().isoformat())
 
         # tried to unify the handling of the group_info XML generation
-        for group in [Group(self.env, sid) for sid in group_sids] + domains + virtual_groups
-            if hasattr(group, 'external_group') and group.external_group:
-                # we don't remember why we skip these
-                continue
+        for group in [Group(self.env, sid) for sid in group_sids] + domains + virtual_groups:
             group_element = ET.SubElement(root, "group_info", name=unicode(group))
-            if hasattr(group, 'sid'):          group_element.attrib['sid'] = group.sid
-            if hasattr(group, 'label'):        group_element.attrib['label'] = group.label
-            if hasattr(group, 'description'):  group_element.text = group.description
-            # this dictionary is keyed by the group's sid, which is
-            # either group.sid for a SimplifiedPermissions Group, or
-            # just 'group'
-            for perm in perm_dict.get(group.sid if hasattr(group, 'sid') else group, []):
+            if isinstance(group, Group):
+                if group.external_group:
+                    # we don't remember why we skip these
+                    continue
+                group_element.attrib['sid'] = group.sid
+                group_element.attrib['label'] = group.label
+                group_element.text = group.description
+                group_sid = group.sid
+            else:
+                group_sid = group
+            for perm in perm_dict.get(group_sid, []):
                 ET.SubElement(group_element, "group_perms",
                               name=perm[0], action=perm[1])
             successful_exports.append(unicode(group))
