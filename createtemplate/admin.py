@@ -186,7 +186,7 @@ class GenerateTemplate(Component):
             project_wiki = [WikiPage(self.env, wiki_page) for wiki_page in wiki_names]
 
             # create an XML tree using ElementTree
-            root = ET.Element("wiki", project=self.env.project_name, date=self._todays_date())
+            root = ET.Element("wiki", project=self.env.project_name, date=datetime.date.today().isoformat())
             for wiki in project_wiki:
                 # only export wiki pages with text
                 if wiki.text:
@@ -233,7 +233,7 @@ class GenerateTemplate(Component):
         # write this information to XML tree if there are attachments to export
         if attachments:
             self.log.info("Creating wiki attachment XML file for template archive")
-            root = ET.Element("attachments", project=self.env.project_name, date=self._todays_date())
+            root = ET.Element("attachments", project=self.env.project_name, date=datetime.date.today().isoformat())
             for attachment in attachments:
                 ET.SubElement(root, "attachment", name=attachment.filename, 
                                                   parent_id=attachment.parent_id,
@@ -286,7 +286,7 @@ class GenerateTemplate(Component):
         # create the XML tree
         self.log.info("Creating ticket type XML file for template archive")
 
-        root = ET.Element("ticket_types", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("ticket_types", project=self.env.project_name, date=datetime.date.today().isoformat())
         for type_name, type_info in ticket_types_dict.iteritems():
             ET.SubElement(root, "type_name", name=type_name).text = type_info
             successful_exports.append(type_name)
@@ -351,7 +351,7 @@ class GenerateTemplate(Component):
 
         # create the XML tree
         self.log.info("Creating priority XML file for template archive")
-        root = ET.Element("ticket_priority", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("ticket_priority", project=self.env.project_name, date=datetime.date.today().isoformat())
         for priority in Priority.select(self.env):
             ET.SubElement(root, "priority_info", name=priority.name, value=str(priority.value))
             successful_exports.append(priority.name)
@@ -375,7 +375,7 @@ class GenerateTemplate(Component):
 
         # create the XML tree
         self.log.info("Creating version XML file for template archive")
-        root = ET.Element("ticket_versions", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("ticket_versions", project=self.env.project_name, date=datetime.date.today().isoformat())
         for version in model.Version.select(self.env):
             # not exporting time as this is unlikely to be relevant 
             # to any new project using this template
@@ -400,7 +400,7 @@ class GenerateTemplate(Component):
 
         # create the XML tree
         self.log.info("Creating component XML file for template archive")
-        root = ET.Element("ticket_components", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("ticket_components", project=self.env.project_name, date=datetime.date.today().isoformat())
         for component in model.Component.select(self.env):
             # we don't save the owner as that user might not be a member
             # of the new project
@@ -529,7 +529,7 @@ class GenerateTemplate(Component):
         successful_exports = list()
 
         self.log.info("Creating mailing list XML file for template archive")
-        root = ET.Element("lists", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("lists", project=self.env.project_name, date=datetime.date.today().isoformat())
         for ml in Mailinglist.select(self.env):
             ET.SubElement(root, "list_info", name=ml.name,
                                              email=ml.emailaddress,
@@ -557,7 +557,7 @@ class GenerateTemplate(Component):
         successful_exports = list()
 
         self.env.log.info("Creating milestone XML file for template archive")
-        root = ET.Element("milestones", project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("milestones", project=self.env.project_name, date=datetime.date.today().isoformat())
         all_milestones = model.Milestone.select(self.env, include_children=True)
         for milestone in all_milestones:
             ms = ET.SubElement(root, "milestone_info", name=milestone.name)
@@ -603,11 +603,6 @@ class GenerateTemplate(Component):
             f.write(json.dumps(text))
         except IOError:
             self.log.info("Unable to create new file info folder at %s", filename)
-
-    def _todays_date(self):
-        """Returns todays date in YYYY-MM-DD format"""
-
-        return datetime.date.today().strftime("%Y-%m-%d")
 
     # ITemplateProvider methods
 
