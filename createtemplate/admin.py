@@ -498,8 +498,7 @@ class GenerateTemplate(Component):
             for group in groups:
                 if not group.external_group:
                     group_element = ET.SubElement(root, "group_info", 
-                        name=group.name, sid=group.sid, 
-                        label=group.label)
+                            name=group.name, sid=group.sid, label=group.label)
                     group_element.text = group.description
                     # add any related group permissions as subelements
                     for perm in perm_dict[group.sid]:
