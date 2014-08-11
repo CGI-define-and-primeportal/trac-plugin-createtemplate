@@ -482,12 +482,12 @@ class GenerateTemplate(Component):
         groups_and_domains = group_sids + domains
 
         # filter out rows from permissions table not realted to groups or domains
-        export_perms = [p for p in sorted(all_perms, key=lambda tmp: tmp[0]) 
+        export_perms = [p for p in sorted(all_perms, key=itemgetter(0)) 
                         if p[0] in groups_and_domains]
 
         # group perms by the username column (e.g. group name)
         perm_dict = {}
-        for group, perms in groupby(export_perms, key=lambda tmp: tmp[0]):
+        for group, perms in groupby(export_perms, key=itemgetter(0)):
             perm_dict[group] = [p for p in perms]
 
         groups = [Group(self.env, sid) for sid in group_sids]
