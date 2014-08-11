@@ -491,34 +491,31 @@ class GenerateTemplate(Component):
         for group, perms in groupby(export_perms, key=itemgetter(0)):
             perm_dict[group] = [p for p in perms]
 
-        groups = [Group(self.env, sid) for sid in group_sids]
-        if groups:
-            root = ET.Element("membership_group", 
-                        project=self.env.project_name, date=self._todays_date())
+        root = ET.Element("membership_group", 
+                          project=self.env.project_name, 
+                          date=datetime.date.today().isoformat())
 
-            for group in groups:
-                if not group.external_group:
-                    group_element = ET.SubElement(root, "group_info", 
-                            name=group.name, sid=group.sid, label=group.label)
-                    group_element.text = group.description
-                    # add any related group permissions as subelements
-                    for perm in perm_dict[group.sid]:
-                        ET.SubElement(group_element, "group_perms",
-                                      name=perm[0], action=perm[1])
-                    successful_exports.append(group.name)
+        # tried to unify the handling of the group_info XML generation
+        for group in [Group(self.env, sid) for sid in group_sids] + domains + virtual_groups
+            if hasattr(group, 'external_group') and group.external_group:
+                # we don't remember why we skip these
+                continue
+            group_element = ET.SubElement(root, "group_info", name=unicode(group))
+            if hasattr(group, 'sid'):          group_element.attrib['sid'] = group.sid
+            if hasattr(group, 'label'):        group_element.attrib['label'] = group.label
+            if hasattr(group, 'description'):  group_element.text = group.description
+            # this dictionary is keyed by the group's sid, which is
+            # either group.sid for a SimplifiedPermissions Group, or
+            # just 'group'
+            for perm in perm_dict.get(group.sid if hasattr(group, 'sid') else group, []):
+                ET.SubElement(group_element, "group_perms",
+                              name=perm[0], action=perm[1])
+            successful_exports.append(unicode(group))
 
-            for domain in domains + virtual_groups:
-                domain_element = ET.SubElement(root, "group_info", name=domain)
-                # add any related domain permissions as subelements
-                for perm in perm_dict.get(domain,[]):
-                    ET.SubElement(domain_element, "group_perms", 
-                                    name=perm[0], action=perm[1])
-
-            # create the xml file
-            self.log.info("Creating membership group XML file for template archive")
-            filename = os.path.join(template_path, 'group.xml')
-            ET.ElementTree(root).write(filename)
-            self.log.info("File %s has been created at %s" % (filename, template_path))
+        self.log.info("Creating membership group XML file for template archive")
+        filename = os.path.join(template_path, 'group.xml')
+        ET.ElementTree(root).write(filename)
+        self.log.info("File %s has been created at %s", filename, template_path)
 
         return successful_exports
 
