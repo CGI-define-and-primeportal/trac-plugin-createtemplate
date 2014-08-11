@@ -510,7 +510,7 @@ class GenerateTemplate(Component):
             for domain in domains + virtual_groups:
                 domain_element = ET.SubElement(root, "group_info", name=domain)
                 # add any related domain permissions as subelements
-                for perm in perm_dict[domain]:
+                for perm in perm_dict.get(domain,[]):
                     ET.SubElement(domain_element, "group_perms", 
                                     name=perm[0], action=perm[1])
 
