@@ -476,10 +476,11 @@ class GenerateTemplate(Component):
         # data needed to export groups and associated permissions
         group_sids = [sid for sid in SimplifiedPermissions(self.env).groups]
         all_perms = DefaultPermissionStore(self.env).get_all_permissions()
+        domains = SimplifiedPermissions(self.env).domains
         # where can we get authenticated and anonymous from the API?
         # seems to be hard coded in define/verify_perms.py
-        domains = SimplifiedPermissions(self.env).domains + ['authenticated', 'anonymous']
-        groups_and_domains = group_sids + domains
+        virtual_groups = ['authenticated', 'anonymous']
+        groups_and_domains = group_sids + domains + virtual_groups
 
         # filter out rows from permissions table not realted to groups or domains
         export_perms = [p for p in sorted(all_perms, key=itemgetter(0)) 
@@ -506,7 +507,7 @@ class GenerateTemplate(Component):
                                       name=perm[0], action=perm[1])
                     successful_exports.append(group.name)
 
-            for domain in domains:
+            for domain in domains + virtual_groups:
                 domain_element = ET.SubElement(root, "group_info", name=domain)
                 # add any related domain permissions as subelements
                 for perm in perm_dict[domain]:
