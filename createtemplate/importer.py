@@ -148,27 +148,27 @@ class ImportTemplate(Component):
             self.import_enum(template_path, enum_to_clear)
 
     def import_perms(self, template_path):
-        """Creates permissions from data stored in permission.xml.
+        """Creates permissions from data stored in groups.xml.
 
-        Parses the permissions XML file to get the data we need to insert
-        into the permissions table. If we have this data we clear the existing
-        permission data, and then insert the template data with an executemany()
-        cursor method.
+        Parses this XML file to get the data we need to insert into the 
+        permissions table. If we have this data we clear the existing
+        permission data, and then insert the template data with an 
+        executemany() cursor method.
 
         If we don't create a perm_data list, we exit the function and 
         continue to use default data.
         """
 
         # parse the tree to get username, action data
-        path = os.path.join(template_path, "permission.xml")
+        path = os.path.join(template_path, "groups.xml")
         try:
             tree = ET.ElementTree(file=path)
-            perm_data = [(perm.attrib['name'], perm.attrib['action']) 
-                         for perm in tree.getroot()
-                         if perm.attrib['name'].strip()]
+            perm_data = [(subelement.attrib['name'], subelement.attrib['action']) 
+                         for perm in tree.getroot() for subelement in perm
+                         if subelement.attrib['name'].strip()]
         except IOError as exception:
             if exception.errno == errno.ENOENT:
-                self.log.info("Path to permission.xml at %s does not exist. "
+                self.log.info("Path to groups.xml at %s does not exist. "
                               "Unable to import permissions", path)
 
         @self.env.with_transaction()
@@ -206,7 +206,9 @@ class ImportTemplate(Component):
             tree = ET.ElementTree(file=path)
             for group in tree.getroot():
                 # have to use _new_group() not add_group() otherwise we can't specify the sid
-                SimplifiedPermissions(self.env)._new_group(group.attrib['sid'], group.attrib['name'], description=group.text)
+                if 'sid' in group.attrib:
+                    SimplifiedPermissions(self.env)._new_group(group.attrib['sid'], 
+                                group.attrib['name'], description=group.text)
         except IOError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to group.xml at %s does not exist. Unable to "

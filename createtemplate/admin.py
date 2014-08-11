@@ -8,6 +8,7 @@ import gzip
 import re
 import json
 from operator import itemgetter
+from itertools import groupby
 # cElementTree is C implementation and faster
 # http://eli.thegreenplace.net/2012/03/15/processing-xml-in-python-with-elementtree/
 try:
@@ -22,7 +23,7 @@ from trac.wiki.model import WikiPage
 from trac.wiki.api import WikiSystem
 from trac.ticket import model
 from logicaordertracker.controller import LogicaOrderController
-from trac.perm import DefaultPermissionStore, IPermissionRequestor
+from trac.perm import DefaultPermissionStore, IPermissionRequestor, PermissionSystem
 from trac.ticket import Priority
 from trac.attachment import Attachment
 from trac.config import PathOption
@@ -146,11 +147,8 @@ class GenerateTemplate(Component):
                     if 'archive' in options:
                         data['repos'] = self.export_file_archive(req, os.path.join(template_path, template_name + '.dump.gz'))
                     if 'group' in options:
-                        data['groups'] = self.export_groups(template_path)
-                        # we export permissions only if groups are selected, 
-                        # otherwise the permissions table might refer to groups
-                        # which don't exist in the project
-                        data['perms'] = self.export_permissions(template_path)
+                        # we import the group perms as part of the group export
+                        data['groups'] = self.export_groups_and_permissions(template_path)
                     if 'list' in options:
                         data['lists'] = self.export_mailinglists(template_path)
                     if 'milestone' in options:
@@ -464,66 +462,63 @@ class GenerateTemplate(Component):
 
         return successful_exports
 
-    def export_groups(self, template_path):
-        """Export project group data, saving it into a new group.xml file.
+    def export_groups_and_permissions(self, template_path):
+        """
+        Export project group data, saving it into a new group.xml file.
         
-        Puts a list of all internal membership groups into an XML file. 
-        We ignore linked groups at the moment.
+        Puts a list of all internal membership groups and associated 
+        permissions into an XML file. We ignore linked groups at the moment.
         """
 
         # a list to return to the template with info about transaction
         successful_exports = list()
 
-        self.log.info("Creating membership group XML file for template archive")
-        groups = [Group(self.env, sid) for sid in Group.groupsBy(self.env)]
+        # data needed to export groups and associated permissions
+        group_sids = [sid for sid in SimplifiedPermissions(self.env).groups]
+        all_perms = DefaultPermissionStore(self.env).get_all_permissions()
+        # where can we get authenticated and anonymous from the API?
+        # seems to be hard coded in define/verify_perms.py
+        domains = SimplifiedPermissions(self.env).domains + ['authenticated', 'anonymous']
+        groups_and_domains = group_sids + domains
+
+        # filter out rows from permissions table not realted to groups or domains
+        export_perms = [p for p in sorted(all_perms, key=lambda tmp: tmp[0]) 
+                        if p[0] in groups_and_domains]
+
+        # group perms by the username column (e.g. group name)
+        perm_dict = {}
+        for group, perms in groupby(export_perms, key=lambda tmp: tmp[0]):
+            perm_dict[group] = [p for p in perms]
+
+        groups = [Group(self.env, sid) for sid in group_sids]
         if groups:
-            root = ET.Element("membership_group", project=self.env.project_name, date=self.todays_date())
+            root = ET.Element("membership_group", 
+                        project=self.env.project_name, date=self.todays_date())
+
             for group in groups:
                 if not group.external_group:
-                    ET.SubElement(root, "group_info", name=group.name, sid=group.sid, label=group.label).text = group.description
+                    group_element = ET.SubElement(root, "group_info", 
+                        name=group.name, sid=group.sid, 
+                        label=group.label)
+                    group_element.text = group.description
+                    # add any related group permissions as subelements
+                    for perm in perm_dict[group.sid]:
+                        ET.SubElement(group_element, "group_perms",
+                                      name=perm[0], action=perm[1])
                     successful_exports.append(group.name)
 
-            exteneral_groups = Group.groupsBy(self.env, only_external_groups=True)
-            linked_groups = [i for i in groups if exteneral_groups]
-            project_groups = [i for i in groups if not exteneral_groups]
+            for domain in domains:
+                domain_element = ET.SubElement(root, "group_info", name=domain)
+                # add any related domain permissions as subelements
+                for perm in perm_dict[domain]:
+                    ET.SubElement(domain_element, "group_perms", 
+                                    name=perm[0], action=perm[1])
 
             # create the xml file
+            self.log.info("Creating membership group XML file for template archive")
             filename = os.path.join(template_path, 'group.xml')
             ET.ElementTree(root).write(filename)
             self.log.info("File %s has been created at %s" % (filename, template_path))
-
-        return successful_exports
-
-    def export_permissions(self, template_path):
-        """Export project permission data, saving into a new permission.xml file.
-        
-        Data is collected from the permissions table, a XML tree created and 
-        then written to a new file called permission.xml.
-
-        User based group memberships are not exported - this aims to stop
-        existing project users being granted permissions in others project.
-        """
-
-        # a list to return to the template with info about transaction
-        successful_exports = list()
-
-        self.log.info("Creating permissions XML file for template archive")
-        root = ET.Element("permissions", project=self.env.project_name, date=self.todays_date())
-
-        all_perms = DefaultPermissionStore(self.env).get_all_permissions()
-        project_members = SimplifiedPermissions(self.env).all_users()
-        export_perm = (p for p in all_perms if p[0] not in project_members)
-
-        for perm in export_perm:
-            ET.SubElement(root, "permission", name=perm[0], action=perm[1])
-            successful_exports.append(perm[0])
-
-        # create the xml file
-        filename = os.path.join(template_path, 'permission.xml')
-        ET.ElementTree(root).write(filename)
-        self.log.info("File %s has been created at %s" % (filename, template_path))
-
-        # need to think about permissions and inheritence
 
         return successful_exports
 
