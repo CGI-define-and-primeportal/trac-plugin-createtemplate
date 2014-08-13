@@ -437,11 +437,8 @@ class ImportTemplate(Component):
         template_name = os.path.basename(os.path.normpath(template_path))
         old_repo_path = os.path.join(template_path,  template_name + '.dump.gz')
 
-        # TODO: As part of #4755, use RepositoryManager API to find default 
-        # repository path
-        default_repo_alias = self.env.config.get('repositories', '.alias')
-        new_repo_path = self.env.config.get('repositories', 
-                                            default_repo_alias + '.dir')
+        # should probably use ResourceManager from trac/versioncontrol...
+        new_repo_path = self.env.config.get('trac', 'repository_dir')
 
         subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
         self.log.info("Imported Subversion file archive from %s" % old_repo_path)
