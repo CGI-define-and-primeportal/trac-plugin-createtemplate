@@ -117,10 +117,9 @@ class ImportTemplate(Component):
         """
 
 
-        importer_functions = {'permission.xml': self.import_perms,
-                             'group.xml': self.import_groups,
-                             'milestone.xml': self.import_milestones,
-                             'component.xml': self.import_components,
+        importer_functions = {'group.xml': self.import_groups,
+                              'milestone.xml': self.import_milestones,
+                              'component.xml': self.import_components,
         }
 
         enum_values = {'priority.xml': 'priority',
@@ -147,49 +146,14 @@ class ImportTemplate(Component):
         if enum_to_clear:
             self.import_enum(template_path, enum_to_clear)
 
-    def import_perms(self, template_path):
-        """Creates permissions from data stored in groups.xml.
-
-        Parses this XML file to get the data we need to insert into the 
-        permissions table. If we have this data we clear the existing
-        permission data, and then insert the template data with an 
-        executemany() cursor method.
-
-        If we don't create a perm_data list, we exit the function and 
-        continue to use default data.
-        """
-
-        # parse the tree to get username, action data
-        path = os.path.join(template_path, "groups.xml")
-        try:
-            tree = ET.ElementTree(file=path)
-            perm_data = [(subelement.attrib['name'], subelement.attrib['action']) 
-                         for perm in tree.getroot() for subelement in perm
-                         if subelement.attrib['name'].strip()]
-        except IOError as exception:
-            if exception.errno == errno.ENOENT:
-                self.log.info("Path to groups.xml at %s does not exist. "
-                              "Unable to import permissions", path)
-
-        @self.env.with_transaction()
-        def clear_and_insert_perms(db):
-            """Clears the whole permissions table of default data, 
-            and then inserts data from template."""
-
-            cursor = db.cursor()
-            self.log.info("Clearing permissions table")
-            # cant pass the table name as an arg so its hard coded
-            cursor.execute("DELETE FROM permission")
-
-            self.log.info("Inserting template data into permissions table")
-            cursor.executemany("""INSERT INTO permission(username, action)
-                                  VALUES (%s, %s)""", perm_data)
-
     def import_groups(self, template_path):
         """Create project groups from group.xml template file.
 
         First we clear the existing data in the groups table and then we insert
-        group data taken from the group.xml file."""
+        group data taken from the group.xml file.
+
+        If this import is successful, we then continue to use the group.xml 
+        file to import permission data relating to groups and domains."""
 
         @self.env.with_transaction()
         def clear_groups(db):
@@ -209,10 +173,47 @@ class ImportTemplate(Component):
                 if 'sid' in group.attrib:
                     SimplifiedPermissions(self.env)._new_group(group.attrib['sid'], 
                                 group.attrib['name'], description=group.text)
+
+            # now we pull the permissions data from groups.xml too
+            self.import_perms(path)
+
         except IOError as exception:
             if exception.errno == errno.ENOENT:
                 self.log.info("Path to group.xml at %s does not exist. Unable to "
                               "import group data from template.", path)
+
+    def import_perms(self, template_path):
+        """Creates permissions from data stored in groups.xml.
+
+        Parses this XML file to get the data we need to insert into the 
+        permissions table. If we have this data we clear the existing
+        permission data, and then insert the template data with an 
+        executemany() cursor method.
+
+        If we don't create a perm_data list, we exit the function and 
+        continue to use default data.
+        """
+
+        # parse the tree to get username, action data
+        # we know the file exists as we check that in import_groups()
+        tree = ET.ElementTree(file=template_path)
+        perm_data = [(subelement.attrib['name'], subelement.attrib['action']) 
+                     for perm in tree.getroot() for subelement in perm
+                     if subelement.attrib['name'].strip()]
+
+        @self.env.with_transaction()
+        def clear_and_insert_perms(db):
+            """Clears the whole permissions table of default data, 
+            and then inserts data from template."""
+
+            cursor = db.cursor()
+            self.log.info("Clearing permissions table")
+            # cant pass the table name as an arg so its hard coded
+            cursor.execute("DELETE FROM permission")
+
+            self.log.info("Inserting template data into permissions table")
+            cursor.executemany("""INSERT INTO permission(username, action)
+                                  VALUES (%s, %s)""", perm_data)
 
     def import_milestones(self, template_path):
         """Create project milestones from milestone.xml template file.
