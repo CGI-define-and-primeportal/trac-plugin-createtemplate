@@ -12,6 +12,7 @@ except ImportError:
 from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket import model
+from trac.perm import DefaultPermissionStore
 from trac.config import PathOption
 from trac.util.datefmt import parse_date
 
@@ -187,8 +188,8 @@ class ImportTemplate(Component):
 
         Parses this XML file to get the data we need to insert into the 
         permissions table. If we have this data we clear the existing
-        permission data, and then insert the template data with an 
-        executemany() cursor method.
+        permission data, and then insert the template data using the 
+        DefaultPermissionStore API.
 
         If we don't create a perm_data list, we exit the function and 
         continue to use default data.
@@ -202,18 +203,18 @@ class ImportTemplate(Component):
                      if subelement.attrib['name'].strip()]
 
         @self.env.with_transaction()
-        def clear_and_insert_perms(db):
-            """Clears the whole permissions table of default data, 
-            and then inserts data from template."""
+        def clear_perms(db):
+            """Clears the whole permissions table of default data."""
 
             cursor = db.cursor()
             self.log.info("Clearing permissions table")
             # cant pass the table name as an arg so its hard coded
             cursor.execute("DELETE FROM permission")
 
-            self.log.info("Inserting template data into permissions table")
-            cursor.executemany("""INSERT INTO permission(username, action)
-                                  VALUES (%s, %s)""", perm_data)
+        self.log.info("Inserting template data into permissions table")
+        dps = DefaultPermissionStore(self.env)
+        for username, action in perm_data:
+            dps.grant_permission(username, action)
 
     def import_milestones(self, template_path):
         """Create project milestones from milestone.xml template file.
