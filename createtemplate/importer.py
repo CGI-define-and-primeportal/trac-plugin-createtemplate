@@ -13,12 +13,13 @@ from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket import model
 from trac.perm import DefaultPermissionStore
-from trac.config import PathOption
+from trac.config import PathOption, ListOption
 from trac.util.datefmt import parse_date
 
 from logicaordertracker.controller import LogicaOrderController
 from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
 from mailinglistplugin.model import Mailinglist
+from createtemplate.api import ProjectTemplateAPI
 
 # Author: Danny Milsom <danny.milsom@cgi.com>
 
@@ -27,6 +28,10 @@ class ImportTemplate(Component):
 
     template_dir_path = PathOption('project_templates', 'template_dir', 
                         doc="The default path for the project template directory")
+
+    version_black_list = ListOption('project_templates', 'version_black_list',
+                        'database_version, initial_database_version',
+                        doc='Version values which should not be updated.')
 
     def import_wiki_pages(self, template_path):
         """Creates wiki pages from wiki.xml template file.
@@ -146,6 +151,9 @@ class ImportTemplate(Component):
 
         if enum_to_clear:
             self.import_enum(template_path, enum_to_clear)
+
+        # we also need to populate the system table
+        self.import_system_data(template_path)
 
     def import_groups(self, template_path):
         """Create project groups from group.xml template file.
@@ -444,3 +452,32 @@ class ImportTemplate(Component):
 
         subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
         self.log.info("Imported Subversion file archive from %s" % old_repo_path)
+
+    def import_system_data(self, template_path):
+        """
+        Import system version data from the info.json file. Note that black 
+        listed data will not be imported, but is still exported for 
+        traceability."""
+
+        template_name = os.path.basename(os.path.normpath(template_path))
+        template_info = ProjectTemplateAPI(self.env).get_template_information(template_name)
+
+        # some old test/staging templates won't have version data
+        version_data = template_info.get('versions')
+        if version_data:
+            for name in self.version_black_list:
+                try:
+                    del version_data[name]
+                except KeyError:
+                    continue
+
+            @self.env.with_transaction()
+            def update_system_table(db):
+                """
+                No Trac API for this, so we have to use raw SQL queries."""
+
+                self.log.info("Inserting template version data into system table")
+                cursor = db.cursor()
+                for name, value in version_data.iteritems():
+                    cursor.execute("""UPDATE system SET value = %s 
+                                      WHERE name = %s""", (value, name))

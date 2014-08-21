@@ -583,18 +583,25 @@ class GenerateTemplate(Component):
         """Creates a new json file which stores metadata about the template. 
 
         This metadta includes information including the author who invoked the
-        create template event, the date the template was created and the 
-        description given by the author of the template.
+        create template event, the date the template was created, the 
+        description given by the author of the template and version data 
+        taken from the system table.
         """
 
         filename = os.path.join(template_path, "info.json")
+
+        # get version data from system table
+        db = self.env.get_read_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM system")
 
         text = {
             'name': template_name,
             'project': self.env.project_name,
             'created': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'author': req.authname,
-            'description': req.args['description']
+            'description': req.args['description'],
+            'versions': dict(kv for kv in cursor.fetchall())
         }
         try:
             f = file(filename, "w")
