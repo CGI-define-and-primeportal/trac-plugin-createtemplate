@@ -603,6 +603,11 @@ class GenerateTemplate(Component):
             'description': req.args['description'],
             'versions': dict(kv for kv in cursor.fetchall())
         }
+
+        # add some extra version data from config file not system table
+        text['versions']['json_latest_version'] = self.env.config.get('logica workflows', 'json_version')
+        text['versions']['type_config_version'] = self.env.config.get('logica workflows', 'type_config_version')
+
         try:
             f = file(filename, "w")
             f.write(json.dumps(text))

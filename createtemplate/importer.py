@@ -29,9 +29,9 @@ class ImportTemplate(Component):
     template_dir_path = PathOption('project_templates', 'template_dir', 
                         doc="The default path for the project template directory")
 
-    version_black_list = ListOption('project_templates', 'version_black_list',
-                        'database_version, initial_database_version',
-                        doc='Version values which should not be updated.')
+    system_version_white_list = ListOption('project_templates', 'system_version_white_list',
+                        'initial_define_data_version, define_data_version',
+                        doc='Version values which should be updated.')
 
     def import_wiki_pages(self, template_path):
         """Creates wiki pages from wiki.xml template file.
@@ -152,8 +152,8 @@ class ImportTemplate(Component):
         if enum_to_clear:
             self.import_enum(template_path, enum_to_clear)
 
-        # we also need to populate the system table
-        self.import_system_data(template_path)
+        # we also need to populate the system table and conf file
+        self.import_version_data(template_path)
 
     def import_groups(self, template_path):
         """Create project groups from group.xml template file.
@@ -453,31 +453,38 @@ class ImportTemplate(Component):
         subprocess.call("zcat %s | svnadmin load %s" % (old_repo_path, new_repo_path), cwd=os.getcwd(), shell=True)
         self.log.info("Imported Subversion file archive from %s" % old_repo_path)
 
-    def import_system_data(self, template_path):
+    def import_version_data(self, template_path):
         """
-        Import system version data from the info.json file. Note that black 
-        listed data will not be imported, but is still exported for 
-        traceability."""
+        Import system version data from the info.json file. Note that only white 
+        listed data will not be imported, but that the entire system table is 
+        exported for traceability."""
 
         template_name = os.path.basename(os.path.normpath(template_path))
         template_info = ProjectTemplateAPI(self.env).get_template_information(template_name)
 
         # some old test/staging templates won't have version data
         version_data = template_info.get('versions')
-        if version_data:
-            for name in self.version_black_list:
-                try:
-                    del version_data[name]
-                except KeyError:
-                    continue
+        system_verson_to_import = dict((n, v) for n, v in version_data.iteritems() 
+                                        if n in self.system_version_white_list)
 
-            @self.env.with_transaction()
-            def update_system_table(db):
-                """
-                No Trac API for this, so we have to use raw SQL queries."""
+        @self.env.with_transaction()
+        def update_system_table(db):
+            """
+            No Trac API for this, so we have to use raw SQL queries."""
 
-                self.log.info("Inserting template version data into system table")
-                cursor = db.cursor()
-                for name, value in version_data.iteritems():
-                    cursor.execute("""UPDATE system SET value = %s 
-                                      WHERE name = %s""", (value, name))
+            self.log.info("Inserting template version data into system table")
+            cursor = db.cursor()
+            for name, value in system_verson_to_import.iteritems():
+                cursor.execute("""UPDATE system SET value = %s 
+                                  WHERE name = %s""", (value, name))
+
+        json_version = version_data.get('json_latest_version')
+        type_config_version = version_data.get('type_config_version')
+
+        if json_version and type_config_version:
+            # we also need to update the config file to ensure the necessary 
+            # upgrade scripts will then be executed to transform the data
+            self.env.config.set("logica workflows", "json_version", json_version)
+            self.env.config.set("logica workflows", "type_config_version",
+                            type_config_version)
+            self.env.config.save()
