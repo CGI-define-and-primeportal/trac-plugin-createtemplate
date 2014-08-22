@@ -9,12 +9,14 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
+from trac.attachment import Attachment
 from trac.core import *
 from trac.wiki.model import WikiPage
 from trac.ticket import model
 from trac.perm import PermissionSystem
 from trac.config import PathOption, ListOption
 from trac.util.datefmt import parse_date
+from trac.util.text import unicode_quote
 
 from logicaordertracker.controller import LogicaOrderController
 from simplifiedpermissionsadminplugin.simplifiedpermissions import SimplifiedPermissions
@@ -61,52 +63,32 @@ class ImportTemplate(Component):
                               "to import wiki pages from template.", full_path)
 
     def import_wiki_attachments(self, template_path):
-        """Imports wiki attachments from template.
-
-        Imports wiki attachment files and inserts associated data into 
-        the attachment wiki table.
-        """
+        """Imports wiki attachments from template using the Attachment API."""
 
         # check that there are attachments to import
         template_attachment_path = os.path.join(template_path, 'attachments', 'wiki')
         if os.path.isdir(template_attachment_path):
 
-            # the directory we copy to can't exist before the copytree() so we delete it just incase
-            project_attachment_path = os.path.join(self.env.path, 'attachments', 'wiki')
-            try:
-                shutil.rmtree(project_attachment_path)
-            except OSError as exception:
-                if exception.errno == errno.ENOENT:
-                    self.log.debug("No directory at %s to delete", project_attachment_path)
-
-            # copy the actual files (and create the attachment dir)
-            try:
-                shutil.copytree(template_attachment_path, project_attachment_path)
-                self.log.info("Copied wiki attachments to %s", project_attachment_path)
-            except OSError as exception:
-                # incase the path doesn't exist
-                if exception.errno == errno.ENOENT:
-                    self.log.info("The path to the template attachment directory "
-                                  "at %s does not exist", template_attachment_path)
-                    return
-
-            # insert meta-data into the wiki attachment table
+            # clear the wiki attachment table
             @self.env.with_transaction()
-            def clear_and_insert_attachments(db):
-                """Clears any wiki attachments from the current attachment table
-                and inserts new rows based on attachment info from xml templates"""
+            def clear_attachments(db):
+                """Clears any wiki attachments from the current attachment table."""
 
                 cursor = db.cursor()
                 cursor.execute("DELETE FROM attachment WHERE type='wiki'")
 
-                filepath = os.path.join(template_path, 'attachment.xml')
-                tree = ET.ElementTree(file=filepath)
-                attachment_info = [('wiki', att.attrib['parent_id'], att.attrib['name'], 
-                                    att.attrib['version'], att.attrib['size'], att.text)
-                                    for att in tree.getroot()]
-
-                cursor.executemany("""INSERT INTO attachment(type, id, filename, version, size, description)
-                                      VALUES (%s, %s, %s, %s, %s, %s)""", attachment_info)
+            # move attachment file into the env and insert database row
+            filepath = os.path.join(template_path, 'attachment.xml')
+            tree = ET.ElementTree(file=filepath)
+            for att in tree.getroot():
+                attachment = Attachment(self.env, 'wiki', att.attrib['parent_id'])
+                attachment.description = att.text
+                try:
+                    fileobj = open(os.path.join(template_attachment_path, 
+                               att.attrib['parent_id'], unicode_quote(att.attrib['name'])))
+                    attachment.insert(att.attrib['name'], fileobj, att.attrib['size'])
+                except IOError:
+                    self.log.info("Unable to import attachment %s", att.attrib['name'])
 
     def template_populate(self, template_path):
         """Clears default data and inserts template specific data from xml files.
