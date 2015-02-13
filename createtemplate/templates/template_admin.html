@@ -23,7 +23,7 @@
       </div>
       <div py:if="success" class="box-success color-none">
         <h3>
-          <i class="icon-ok-sign"></i>
+          <i class="fa fa-check-circle"></i>
           Congratulations! You created a new template!
           <a id="template-info-toggle">More information.</a>
         </h3>
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div py:if="failure" class="box-warning">
-        <i class="icon-warning-sign"></i>
+        <i class="fa fa-exclamation-triangle"></i>
         <strong>
           A template with the name '${template_name}' already exists.
           Please try an alternative name.
@@ -72,13 +72,13 @@
 
         <label for="template-description">
           Template Description
-          <i id="description-handle" class="icon-info-sign color-muted-dark"></i>
+          <i id="description-handle" class="fa fa-info-circle color-muted-dark"></i>
         </label>
         <textarea class="required xsmall" name="description"></textarea>
 
         <label for="template-components">
           Components
-          <i id="component-handle" class="icon-info-sign color-muted-dark"></i>
+          <i id="component-handle" class="fa fa-info-circle color-muted-dark"></i>
         </label>
         <select name="template_components" id="template-components" multiple="multiple">
           <option py:for="value, label in tpl_components" value="${value}"
@@ -87,7 +87,7 @@
 
         <button type="submit" class="btn btn-mini btn-primary"
                 name="template-submit" value="create">
-          <i class="icon-hdd"></i> Create Template
+          <i class="fa fa-hdd-o"></i> Create Template
         </button>
       </form>
       <table py:if="templates" class="rounded border-header full-width striped">
@@ -113,7 +113,7 @@
         </py:for>
       </table>
       <div class="box-info">
-        <i class="icon-info-sign"></i>
+        <i class="fa fa-info-circle"></i>
         To remove a previously created template, please email ${email_service_desk}
       </div>
       <div id="description-dialog" title="Template description" class="hidden">
