@@ -23,7 +23,7 @@ from trac.wiki.model import WikiPage
 from trac.wiki.api import WikiSystem
 from trac.ticket import model
 from logicaordertracker.controller import LogicaOrderController
-from trac.perm import DefaultPermissionStore, IPermissionRequestor
+from trac.perm import DefaultPermissionStore, IPermissionRequestor, PermissionSystem
 from trac.ticket import Priority
 from trac.attachment import Attachment
 from trac.config import PathOption
@@ -201,7 +201,7 @@ class GenerateTemplate(Component):
                     if wiki.author:
                         attribs['author'] = wiki.author
 
-                    ET.SubElement(root, "page", attribs).text = wiki.text
+                    page = ET.SubElement(root, "page", attribs).text = wiki.text
                     successful_exports.append(wiki.name)
 
             # create the actual xml file

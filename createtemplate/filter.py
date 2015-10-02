@@ -1,4 +1,5 @@
 from trac.core import *
+from trac.config import PathOption
 from trac.web import ITemplateStreamFilter
 from createtemplate.api import ProjectTemplateAPI
 from genshi.builder import tag
